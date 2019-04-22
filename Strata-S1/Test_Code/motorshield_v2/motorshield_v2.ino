@@ -43,12 +43,15 @@ bool hastriggered = false;
 
 // Variables for timing
 int t_ret = 4500;      // leave Entraps retracted for 45s in µg phase 
-int t_ext =  3000;      // leave Entraps extended for 3s in µg phase
+int t_ext = 3000;      // leave Entraps extended for 3s in µg phase
 
 void setup() {
   // Enable serial port
   Serial.begin(9600);
 
+  // Set trigger pin as input
+  pinMode(TRIGGER, INPUT);
+  
   // Make pin assignments
   for( char i = 0; i < 4; i++ )
   {
@@ -56,6 +59,7 @@ void setup() {
     pinMode(PIN_EN_ARR[i], OUTPUT);
     pinMode(PIN_A1_ARR[i], OUTPUT);
     pinMode(PIN_A2_ARR[i], OUTPUT);
+    
     /* DO NOT SET MODE FOR ANALOG PINS */
 
     // Give digital pins default LOW value
@@ -73,6 +77,7 @@ void setup() {
     Serial.print(" starting at ");
     Serial.println(act_pos[i]);
   }
+
   for( char i = 1; i < 4; i++ )
   {
     if( act_pos[i] > act_maxe[i] )
@@ -84,7 +89,7 @@ void setup() {
         act_pos[i] = analogRead(PIN_PS_ARR[i]);
         Serial.print("Setting ");
         Serial.print(i, DEC);
-        Serial.print("to: ");
+        Serial.print(" to: ");
         Serial.println(act_pos[i]);
       }
       digitalWrite(PIN_EN_ARR[i], LOW);
@@ -133,7 +138,7 @@ void loop() {
       {
         Serial.print("Retracting ");
         Serial.print(i, DEC);
-        Serial.print("to ");
+        Serial.print(" to ");
         Serial.println(act_mine[i]);
 
         // Fully retract entrapulator
@@ -162,7 +167,7 @@ void loop() {
       {
         Serial.print("Extending halfway out ");
         Serial.print(i, DEC);
-        Serial.print("to ");
+        Serial.print(" to ");
         Serial.println(act_half[i]);
 
         digitalWrite(PIN_A1_ARR[i], HIGH);
@@ -188,7 +193,7 @@ void loop() {
       {
         Serial.print("Retracting ");
         Serial.print(i, DEC);
-        Serial.print("to ");
+        Serial.print(" to ");
         Serial.println(act_mine[i]);
 
         // Fully retract entrapulator
@@ -215,7 +220,7 @@ void loop() {
       {
         Serial.print("Extending ~1/4 way out ");
         Serial.print(i, DEC);
-        Serial.print("to ");
+        Serial.print(" to ");
         Serial.println(act_quart[i]);
 
         digitalWrite(PIN_A1_ARR[i], HIGH);
@@ -242,7 +247,7 @@ void loop() {
       {
         Serial.print("Retracting ");
         Serial.print(i, DEC);
-        Serial.print("to ");
+        Serial.print(" to ");
         Serial.println(act_mine[i]);
 
         // Fully retract entrapulator
@@ -264,7 +269,7 @@ void loop() {
       delay(t_ret);
     }
   }
-  else if (hastriggered == true)
+  else if (hastriggered)
   {  
   // extend entrapulators for landing
 
@@ -279,7 +284,7 @@ void loop() {
           act_pos[i] = analogRead(PIN_PS_ARR[i]);
           Serial.print("Setting ");
           Serial.print(i, DEC);
-          Serial.print("to: ");
+          Serial.print(" to: ");
           Serial.println(act_pos[i]);
         }
         digitalWrite(PIN_EN_ARR[i], LOW);
@@ -289,7 +294,8 @@ void loop() {
       }
      }
    }
-   else{
-   //nothing
+   else
+   {
+     //nothing
    }
 }
