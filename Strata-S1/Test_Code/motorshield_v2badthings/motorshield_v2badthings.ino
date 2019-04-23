@@ -49,7 +49,7 @@ int t_ext =  3000;      // leave Entraps extended for 3s in µg phase
 
 // Timeout for extension/retraction in millseconds
 // TODO: Decrease this for flight!
-unsigned long timeout = 2000;
+unsigned long timeout = 10000;
 
 void printMaximum(char i, unsigned int value)
 {
@@ -94,7 +94,7 @@ void enableExtend(char i, bool enable)
     digitalWrite(PIN_A1_ARR[i], LOW);
   }
   Serial.print(" extend on ");
-  Serial.println(i);
+  Serial.println(i, DEC);
 }
 
 void enableRetract(char i, bool enable)
@@ -112,7 +112,7 @@ void enableRetract(char i, bool enable)
     digitalWrite(PIN_A2_ARR[i], LOW);
   }
   Serial.print(" retract on ");
-  Serial.println(i);
+  Serial.println(i, DEC);
 }
 
 // Retract entrapulator to setpoint
