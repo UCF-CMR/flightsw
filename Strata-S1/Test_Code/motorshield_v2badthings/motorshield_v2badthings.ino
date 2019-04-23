@@ -45,11 +45,11 @@ bool hastriggered = false;
 // Variables for timing
 // **** CHANGE FOR FLIGHT ****
 int t_ret = 4500;      // leave Entraps retracted for 45s in µg phase 
-int t_ext =  3000;      // leave Entraps extended for 3s in µg phase
+int t_ext = 3000;      // leave Entraps extended for 3s in µg phase
 
 // Timeout for extension/retraction in millseconds
 // TODO: Decrease this for flight!
-unsigned long timeout = 10000;
+unsigned long timeout = 2000;
 
 void printMaximum(char i, unsigned int value)
 {
@@ -187,6 +187,7 @@ void setup() {
 
   // Enable serial port
   Serial.begin(9600);
+  Serial.println("########## INITIAL SETUP ##########");
 
   // Set trigger pin as input
   pinMode(TRIGGER, INPUT);
@@ -223,6 +224,8 @@ void setup() {
     act_max[i] = analogRead(PIN_PS_ARR[i]);
     printMaximum(i, act_max[i]);
   }
+
+  Serial.println("########## SETUP COMPLETE #########");
   
 }
 
@@ -230,7 +233,7 @@ void loop() {
 
   // Check for and debounce trigger signal
   Serial.print("Waiting for trigger signal ... ");
-  if( digitalRead(TRIGGER) == HIGH )
+  if( digitalRead(TRIGGER) == HIGH && !hastriggered)
   {
     delay(10);
     if( digitalRead(TRIGGER) == HIGH )
@@ -253,7 +256,9 @@ void loop() {
       //StrataSphere stays retracted the rest of the time
       
       // leave B-D retracted for retract time
+      Serial.print("Waiting for retract time to elapse ... ");
       delay(t_ret);
+      Serial.println("done!");
 
       // Half-way extend entrapulators B-D
       Serial.println("######### HALF EXTEND TEST ########");
@@ -264,8 +269,10 @@ void loop() {
       }
 
       // leave B-D extended for ext. time
+      Serial.print("Waiting for extend time to elapse ... ");
       delay(t_ext);
-
+      Serial.println("done!");
+      
       // Fully retract entrapulators B-D
       Serial.println("######## FULL RETRACT TEST ########");
       for( char i = 0; i < 3; i++ )
@@ -275,8 +282,10 @@ void loop() {
       }
 
       // leave retracted for time t_retract
+      Serial.print("Waiting for retract time to elapse ... ");
       delay(t_ret);
-      
+      Serial.println("done!");
+            
       // Extend entrapulators B-D about 1/4 way out
       Serial.println("####### QUARTER EXTEND TEST #######");
       for( char i = 0; i < 3; i++ )
@@ -286,7 +295,9 @@ void loop() {
       }
 
       // leave extended for time t_extend
+      Serial.print("Waiting for extend time to elapse ... ");
       delay(t_ext);
+      Serial.println("done!");
 
       // Fully retract entrapulators B-D
       Serial.println("######## FULL RETRACT TEST ########");
@@ -295,19 +306,30 @@ void loop() {
         retractEntrap(i, act_mine[i]);
         delay(1000);
       }
-
+      
+      // leave retracted for time t_retract
+      Serial.print("Waiting for retract time to elapse ... ");
       delay(t_ret);
+      Serial.println("done!");
+
+      // Fully extend entrapulators for landing
+      Serial.println("######### FULL EXTEND TEST ########");
+      for( char i = 0; i < 4; i++ )
+      {
+        extendEntrap(i, act_maxe[i]);
+        delay(1000);
+      }
+
+      Serial.println("####### EXPERIMENT COMPLETE ######");
+      delay(1000);
+
     }
   }
   else if (hastriggered)
-  {  
-    // Extend entrapulators for landing
-    Serial.println("######### FULL EXTEND TEST ########");
-    for( char i = 0; i < 4; i++ )
-    {
-      extendEntrap(i, act_maxe[i]);
-      delay(1000);
-    }
+  {
+    // Indicate experiment has already been run and will not retrigger
+    Serial.println("experiment complete!");
+    delay(1000);
   }
   else
   {
