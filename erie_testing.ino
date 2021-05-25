@@ -83,9 +83,7 @@ delay(1500);
 digitalWrite(LED,HIGH);                                             // LEDs will turn off when power is shut off
 //delay(3600000);  
 //delay(20000);                                                     
-// }
+// }                                                                //These two end brackets correspond to the triggers at the beginning of the main loop, add them back in when done testing
 //}                                          
 }
 
-
-//command / trigger section and last two } to remove the code that opens or closes the door
