@@ -4,8 +4,8 @@
 #define STEPPER_PULSES_TOTAL 3000 // Total number of stepper pulses in single direction
 #define STEPPER_DELAY        5000 // Delay time in microseconds between directions
 
+unsigned int stepper_start_time;
 volatile unsigned int stepper_pulse_current;
-volatile unsigned int stepper_start_time;
 volatile bool stepper_pulse_state;
 volatile bool stepper_complete_flag;
 
@@ -60,6 +60,9 @@ void start_stepper()
 
   // Reset stepper pulse state
   reset_stepper_pulse();
+
+  // Indicate stepper is not finished
+  stepper_complete_flag = false;
 
   // Enable all interrupts
   sei();
