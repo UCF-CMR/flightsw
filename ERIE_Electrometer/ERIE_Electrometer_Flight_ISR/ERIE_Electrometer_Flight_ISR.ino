@@ -50,7 +50,7 @@ byte channel = 0xFF;
 #define MUX_MASK  B00000111 // Base PORTB bit mask (do not change) (defaults to Arduino pins 8,  9, 10)
 #define MUX_SHIFT 0         // Left shift from B00000111 (shift of 1 would give Arduino pins 9, 10, 11)
 
-#define RESET_PIN 12 // Arduino pin 12; electrometer pin 6
+#define RESET_PIN  7 // Arduino pin  7; electrometer pin 6
 #define SIGNL_PIN A0 // Arduino pin A0; electrometer pin 7
 
 #define PIN_MOSI  11 // Arduino pin 11; SD board pin 4
@@ -74,7 +74,6 @@ void setup()
 {
   
   Serial.begin(115200);
-  while(!Serial);
   Serial.println();
 
   Serial.print("Initializing SD card ... ");
