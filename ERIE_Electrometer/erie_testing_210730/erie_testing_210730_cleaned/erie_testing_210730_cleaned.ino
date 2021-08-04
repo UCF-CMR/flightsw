@@ -1,8 +1,22 @@
-#define PIN_DI_TRIGGER         3    // Digital input to trigger experiment (active high)
-#define PIN_DO_STEP_CP         4    // Digital output for stepper pulse (rising edge)
-#define PIN_DO_STEP_DIR        5    // Digital output for stepper direction (high to open, low to close)
+#define PIN_DI_TRIGGER         3    // Digital input from experiment trigger (active high)
+#define PIN_DO_STEP_CP         4    // Digital output to stepper pulse pin (rising edge)
+#define PIN_DO_STEP_DIR        5    // Digital output to stepper direction pin (high to open, low to close)
+#define PIN_DO_HV_ENABLE       6    // Digital output to high voltage enable (active high)
 #define PIN_DO_LED_EM_ENABLE  A1    // Digital output to enable LEDs and electrometer (active high)
 #define PIN_DO_5V_REG_ENABLE  A2    // Digital output to enable 5V regulator (active high)
+
+#define PIN_DO_SD_MOSI        11    // Digital output to microSD board pin 4 (SPI MOSI)
+#define PIN_DI_SD_MISO        12    // Digital input from microSD board pin 3 (SPI MISO)
+#define PIN_DO_SD_SCK         13    // Digital output to microSD board pin 5 (SPI SCK)
+#define PIN_DO_SD_CS          A3    // Digital output to microSD board pin 6 (SPI CS)
+
+#define PIN_AI_EM_SIGNAL      A0    // Analog input from electrometer signal on pin 7 (0-5V, 2.5V zero)
+#define PIN_DO_EM_RESET        7    // Digital output to electrometer reset on pin 6 (active high)
+#define PIN_DO_EM_MUX_A        8    // Digital output to electrometer mux addr A on pin 3 (active high; LSB)
+#define PIN_DO_EM_MUX_B        9    // Digital output to electrometer mux addr B on pin 4 (active high)
+#define PIN_DO_EM_MUX_C       10    // Digital output to electrometer mux addr C on pin 5 (active high; MSB)
+#define PIN_DO_EM_MUX_MASK  0x07    // Base PORTB bit mask (do not change) (defaults to Arduino pins 8,  9, 10)
+#define PIN_DO_EM_MUX_SHIFT    0    // Left shift from B00000111 (shift of 1 would give Arduino pins 9, 10, 11)
 
 // TODO: Edit this for full opening - 6750
 #define DOOR_MOVE_STEPS 3050
