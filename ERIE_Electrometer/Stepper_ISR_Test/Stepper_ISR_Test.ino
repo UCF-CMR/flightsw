@@ -1,13 +1,32 @@
-#define PIN_DO_STEP_CP       4    // Digital output to stepper pulse pin (rising edge)
-#define PIN_DO_STEP_DIR      5    // Digital output to stepper direction pin (high to open, low to close)
+#define PIN_DO_STEP_CP          4    // Digital output to stepper pulse pin (rising edge)
+#define PIN_DO_STEP_DIR         5    // Digital output to stepper direction pin (high to open, low to close)
 
-#define STEPPER_PULSES_TOTAL 3000 // Total number of stepper pulses in single direction
-#define STEPPER_DELAY        5000 // Delay time in microseconds between directions
+#define PIN_DO_EM_MUX_A         8    // Digital output to electrometer mux addr A on pin 3 (active high; LSB)
+#define PIN_DO_EM_MUX_B         9    // Digital output to electrometer mux addr B on pin 4 (active high)
+#define PIN_DO_EM_MUX_C        10    // Digital output to electrometer mux addr C on pin 5 (active high; MSB)
 
-unsigned int stepper_start_time;
-volatile unsigned int stepper_pulse_current;
-volatile bool stepper_pulse_state;
-volatile bool stepper_complete_flag;
+#define STEPPER_PULSES_TOTAL 3000    // Total number of stepper pulses in single direction
+#define STEPPER_DELAY        5000    // Delay time in microseconds between directions
+
+#define MEASURE_DELAY        3000    // Delay between measurements and stepper operation
+
+unsigned int timer_pulse_count = 0;
+
+unsigned int stepper_start_time = 0;
+volatile unsigned int stepper_pulse_current = 0;
+volatile bool stepper_pulse_state = false;
+volatile bool stepper_complete_flag = false;
+volatile bool stepper_enable = false;
+
+#define STEPPER_MOD 1
+
+volatile bool electrometer_enable = false;
+volatile bool electrometer_mux_state[3] = {false, false, false};
+
+// Clock divider relative to stepper frequency
+#define MUX_C_TIMER_MOD 50
+#define MUX_B_TIMER_MOD (2*MUX_C_TIMER_MOD)
+#define MUX_A_TIMER_MOD (4*MUX_C_TIMER_MOD)
 
 void update_stepper_pulse()
 {
@@ -32,7 +51,7 @@ void reset_stepper_pulse()
 
 }
 
-void start_stepper()
+void start_timer()
 {
 
   // Clear all interrupts
@@ -44,7 +63,7 @@ void start_stepper()
   TCNT2  = 0x00;
 
   // Load Timer2 compare match register
-  // 16MHz/prescaler*2*period-1; for 5ms period, load 155.25
+  // 16MHz/prescaler/2*period-1; for 5ms period, load 155.25
   // NOTE: may need to compensate for ISR computation time
   OCR2A = 155;
 
@@ -58,22 +77,28 @@ void start_stepper()
   // Enable timer compare interrupt
   TIMSK2 |= (1 << OCIE2A);
 
+  // Enable all interrupts
+  sei();
+
+}
+
+void start_stepper()
+{
+
   // Reset stepper pulse state
   reset_stepper_pulse();
 
   // Indicate stepper is not finished
   stepper_complete_flag = false;
 
-  // Enable all interrupts
-  sei();
+  stepper_enable = true;
 
 }
 
 void stop_stepper()
 {
 
-  // Disable Timer2 interrupts
-  TIMSK2 = 0x00;
+  stepper_enable = false;
 
   // Display stepper status
   Serial.print("Stepper executed ");
@@ -90,6 +115,14 @@ void stop_stepper()
 
 }
 
+void stop_timer()
+{
+
+  // Disable Timer2 interrupts
+  TIMSK2 = 0x00;
+
+}
+
 void setup()
 {
 
@@ -97,6 +130,22 @@ void setup()
 
   pinMode(PIN_DO_STEP_CP,  OUTPUT);
   pinMode(PIN_DO_STEP_DIR, OUTPUT);
+
+  digitalWrite(PIN_DO_STEP_CP,  LOW);
+  digitalWrite(PIN_DO_STEP_DIR, LOW);
+
+  pinMode(PIN_DO_EM_MUX_A, OUTPUT);
+  pinMode(PIN_DO_EM_MUX_B, OUTPUT);
+  pinMode(PIN_DO_EM_MUX_C, OUTPUT);
+
+  digitalWrite(PIN_DO_EM_MUX_A, LOW);
+  digitalWrite(PIN_DO_EM_MUX_B, LOW);
+  digitalWrite(PIN_DO_EM_MUX_C, LOW);
+
+  start_timer();
+  electrometer_enable = true;
+
+  delay(MEASURE_DELAY);
 
   Serial.println();
   Serial.println("Running stepper in opened direction ...");
@@ -112,6 +161,11 @@ void setup()
   start_stepper();
   while(!stepper_complete_flag);
 
+  delay(MEASURE_DELAY);
+
+  electrometer_enable = false;
+  stop_timer();
+
 }
 
 void loop()
@@ -122,18 +176,34 @@ void loop()
 ISR(TIMER2_COMPA_vect)
 {
 
-  // Invert pulse output pin
-  stepper_pulse_state = !stepper_pulse_state;
-  update_stepper_pulse();
+  timer_pulse_count++;
 
-  // Only count rising edges as valid steps
-  if(stepper_pulse_state)
+  if(stepper_enable)
   {
-    stepper_pulse_current++;
-    if(stepper_pulse_current >= STEPPER_PULSES_TOTAL)
+    if((timer_pulse_count % STEPPER_MOD) == 0)
     {
-      stop_stepper();
+      // Invert pulse output pin
+      stepper_pulse_state ^= true;
+      update_stepper_pulse();
+
+      // Only count rising edges as valid steps
+      if(stepper_pulse_state)
+      {
+        stepper_pulse_current++;
+        if(stepper_pulse_current >= STEPPER_PULSES_TOTAL)
+          stop_stepper();
+      }
     }
   }
 
+  if(electrometer_enable)
+  {
+    if((timer_pulse_count % MUX_C_TIMER_MOD) == 0)
+      electrometer_mux_state[0] ^= true;
+    if((timer_pulse_count % MUX_B_TIMER_MOD) == 0)
+      electrometer_mux_state[1] ^= true;
+    if((timer_pulse_count % MUX_A_TIMER_MOD) == 0)
+      electrometer_mux_state[2] ^= true;
+    PORTB = (PORTB & ~B00000111) | electrometer_mux_state[0] << 2 | electrometer_mux_state[1] << 1 | electrometer_mux_state[2];
+  }
 }
