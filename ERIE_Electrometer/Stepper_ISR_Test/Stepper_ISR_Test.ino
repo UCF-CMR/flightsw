@@ -1,14 +1,10 @@
+#define PIN_DO_5V_REG_ENABLE   A2    // Digital output to enable 5V regulator (active high) [stepper]
+
 #define PIN_DO_STEP_CP          4    // Digital output to stepper pulse pin (rising edge)
 #define PIN_DO_STEP_DIR         5    // Digital output to stepper direction pin (high to open, low to close)
 
-#define PIN_DO_EM_MUX_A         8    // Digital output to electrometer mux addr A on pin 3 (active high; LSB)
-#define PIN_DO_EM_MUX_B         9    // Digital output to electrometer mux addr B on pin 4 (active high)
-#define PIN_DO_EM_MUX_C        10    // Digital output to electrometer mux addr C on pin 5 (active high; MSB)
-
-#define STEPPER_PULSES_TOTAL 3000    // Total number of stepper pulses in single direction
+#define STEPPER_PULSES       3000    // Total number of stepper pulses in single direction
 #define STEPPER_DELAY        5000    // Delay time in microseconds between directions
-
-#define MEASURE_DELAY        3000    // Delay between measurements and stepper operation
 
 unsigned int timer_pulse_count = 0;
 
@@ -19,14 +15,6 @@ volatile bool stepper_complete_flag = false;
 volatile bool stepper_enable = false;
 
 #define STEPPER_MOD 1
-
-volatile bool electrometer_enable = false;
-volatile bool electrometer_mux_state[3] = {false, false, false};
-
-// Clock divider relative to stepper frequency
-#define MUX_C_TIMER_MOD 50
-#define MUX_B_TIMER_MOD (2*MUX_C_TIMER_MOD)
-#define MUX_A_TIMER_MOD (4*MUX_C_TIMER_MOD)
 
 void update_stepper_pulse()
 {
@@ -128,24 +116,19 @@ void setup()
 
   Serial.begin(115200);
 
-  pinMode(PIN_DO_STEP_CP,  OUTPUT);
-  pinMode(PIN_DO_STEP_DIR, OUTPUT);
+  pinMode(PIN_DO_5V_REG_ENABLE, OUTPUT);
+  pinMode(PIN_DO_STEP_CP,       OUTPUT);
+  pinMode(PIN_DO_STEP_DIR,      OUTPUT);
 
-  digitalWrite(PIN_DO_STEP_CP,  LOW);
-  digitalWrite(PIN_DO_STEP_DIR, LOW);
-
-  pinMode(PIN_DO_EM_MUX_A, OUTPUT);
-  pinMode(PIN_DO_EM_MUX_B, OUTPUT);
-  pinMode(PIN_DO_EM_MUX_C, OUTPUT);
-
-  digitalWrite(PIN_DO_EM_MUX_A, LOW);
-  digitalWrite(PIN_DO_EM_MUX_B, LOW);
-  digitalWrite(PIN_DO_EM_MUX_C, LOW);
+  digitalWrite(PIN_DO_5V_REG_ENABLE, LOW);
+  digitalWrite(PIN_DO_STEP_CP,       LOW);
+  digitalWrite(PIN_DO_STEP_DIR,      LOW);
 
   start_timer();
-  electrometer_enable = true;
 
-  delay(MEASURE_DELAY);
+  digitalWrite(PIN_DO_5V_REG_ENABLE, HIGH);
+
+  delay(STEPPER_DELAY);
 
   Serial.println();
   Serial.println("Running stepper in opened direction ...");
@@ -161,9 +144,10 @@ void setup()
   start_stepper();
   while(!stepper_complete_flag);
 
-  delay(MEASURE_DELAY);
+  delay(STEPPER_DELAY);
 
-  electrometer_enable = false;
+  digitalWrite(PIN_DO_5V_REG_ENABLE, LOW);
+
   stop_timer();
 
 }
@@ -190,20 +174,10 @@ ISR(TIMER2_COMPA_vect)
       if(stepper_pulse_state)
       {
         stepper_pulse_current++;
-        if(stepper_pulse_current >= STEPPER_PULSES_TOTAL)
+        if(stepper_pulse_current >= STEPPER_PULSES)
           stop_stepper();
       }
     }
   }
 
-  if(electrometer_enable)
-  {
-    if((timer_pulse_count % MUX_C_TIMER_MOD) == 0)
-      electrometer_mux_state[0] ^= true;
-    if((timer_pulse_count % MUX_B_TIMER_MOD) == 0)
-      electrometer_mux_state[1] ^= true;
-    if((timer_pulse_count % MUX_A_TIMER_MOD) == 0)
-      electrometer_mux_state[2] ^= true;
-    PORTB = (PORTB & ~B00000111) | electrometer_mux_state[0] << 2 | electrometer_mux_state[1] << 1 | electrometer_mux_state[2];
-  }
 }
