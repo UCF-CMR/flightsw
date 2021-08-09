@@ -1,8 +1,9 @@
 #define PIN_DI_TRIGGER          3    // Digital input from experiment trigger (active high)
 #define PIN_DO_STEP_CP          4    // Digital output to stepper pulse pin (rising edge)
 #define PIN_DO_STEP_DIR         5    // Digital output to stepper direction pin (high to open, low to close)
-#define PIN_DO_12V_REG_ENABLE  A2    // Digital output to enable 12V regulator (active high) [LEDs/electrometer]
-#define PIN_DO_5V_REG_ENABLE   A1    // CHANGED for STEPPER ENABLE .... Digital output to enable 5V regulator (active high) [stepper]
+#define PIN_DO_STEP_ENABLE     A1    // Digital output to stepper enable pin (active high)
+
+#define PIN_DO_12V_REG_ENABLE  A2    // Digital output to 12V regulator enable pin (active high) [LEDs/electrometer]
 
 #define PIN_AI_EM_SIGNAL       A0    // Analog input from electrometer signal on pin 7 (0-5V, 2.5V zero)
 #define PIN_DO_EM_RESET         7    // Digital output to electrometer reset on pin 6 (active high)
@@ -147,8 +148,8 @@ typedef enum
   STATE_INITIALIZE,
   STATE_TRIGGER_WAIT,
   STATE_TRIGGER_VERIFY,
-  STATE_5V_REG_ENABLE,
-  STATE_5V_REG_DISABLE,
+  STATE_STEPPER_ENABLE,
+  STATE_STEPPER_DISABLE,
   STATE_12V_REG_ENABLE,
   STATE_12V_REG_DISABLE,
   STATE_ELECTROMETER_START,
@@ -199,8 +200,8 @@ void state_transition(int new_state, unsigned long delay_time)
     case STATE_INITIALIZE:         Serial.println("INITIALIZE");         break;
     case STATE_TRIGGER_WAIT:       Serial.println("TRIGGER_WAIT");       break;
     case STATE_TRIGGER_VERIFY:     Serial.println("TRIGGER_VERIFY");     break;
-    case STATE_5V_REG_ENABLE:      Serial.println("5V_REG_ENABLE");      break;
-    case STATE_5V_REG_DISABLE:     Serial.println("5V_REG_DISABLE");     break;
+    case STATE_STEPPER_ENABLE:     Serial.println("STEPPER_ENABLE");     break;
+    case STATE_STEPPER_DISABLE:    Serial.println("STEPPER_DISABLE");    break;
     case STATE_12V_REG_ENABLE:     Serial.println("12V_REG_ENABLE");     break;
     case STATE_12V_REG_DISABLE:    Serial.println("12V_REG_DISABLE");    break;
     case STATE_ELECTROMETER_START: Serial.println("ELECTROMETER_START"); break;
@@ -297,13 +298,13 @@ void setup()
   Serial.begin(115200);
   Serial.println("Starting state machine");
 
-  pinMode(PIN_DO_5V_REG_ENABLE,  OUTPUT);
+  pinMode(PIN_DI_TRIGGER, INPUT);
+
+  pinMode(PIN_DO_STEP_ENABLE,    OUTPUT);
   pinMode(PIN_DO_12V_REG_ENABLE, OUTPUT);
 
-  digitalWrite(PIN_DO_5V_REG_ENABLE,  LOW);
+  digitalWrite(PIN_DO_STEP_ENABLE,    LOW);
   digitalWrite(PIN_DO_12V_REG_ENABLE, LOW);
-  
-  pinMode(PIN_DI_TRIGGER, INPUT);
 
   pinMode(PIN_DO_STEP_CP,  OUTPUT);
   pinMode(PIN_DO_STEP_DIR, OUTPUT);
@@ -311,12 +312,12 @@ void setup()
   digitalWrite(PIN_DO_STEP_CP,  LOW);
   digitalWrite(PIN_DO_STEP_DIR, LOW);
 
-//  pinMode(PIN_DO_EM_RESET, OUTPUT);
+  pinMode(PIN_DO_EM_RESET, OUTPUT);
   pinMode(PIN_DO_EM_MUX_A, OUTPUT);
   pinMode(PIN_DO_EM_MUX_B, OUTPUT);
   pinMode(PIN_DO_EM_MUX_C, OUTPUT);
-  
-//  digitalWrite(PIN_DO_EM_RESET, LOW);
+
+  digitalWrite(PIN_DO_EM_RESET, LOW);
   digitalWrite(PIN_DO_EM_MUX_A, LOW);
   digitalWrite(PIN_DO_EM_MUX_B, LOW);
   digitalWrite(PIN_DO_EM_MUX_C, LOW);
@@ -369,13 +370,13 @@ void loop()
       }
       break;
 
-    case STATE_5V_REG_ENABLE:
-      digitalWrite(PIN_DO_5V_REG_ENABLE, HIGH);
+    case STATE_STEPPER_ENABLE:
+      digitalWrite(PIN_DO_STEP_ENABLE, HIGH);
       state_transition(STATE_STEPPER_RUN_OPENED, REGULATOR_DELAY);
       break;
 
-    case STATE_5V_REG_DISABLE:
-      digitalWrite(PIN_DO_5V_REG_ENABLE, LOW);
+    case STATE_STEPPER_DISABLE:
+      digitalWrite(PIN_DO_STEP_ENABLE, LOW);
       state_transition(STATE_ELECTROMETER_STOP, MEASURE_DELAY);
       break;
 
@@ -391,7 +392,7 @@ void loop()
 
     case STATE_ELECTROMETER_START:
       electrometer_enable = true;
-      state_transition(STATE_5V_REG_ENABLE, MEASURE_DELAY);
+      state_transition(STATE_STEPPER_ENABLE, MEASURE_DELAY);
       break;
 
     case STATE_ELECTROMETER_STOP:
@@ -430,7 +431,7 @@ void loop()
           {
             door_state_transition(DOOR_CLOSED);
             stepper_complete_flag = false;
-            state_transition(STATE_5V_REG_DISABLE, REGULATOR_DELAY);
+            state_transition(STATE_STEPPER_DISABLE, REGULATOR_DELAY);
           }
           break;
         case DOOR_OPENED:
