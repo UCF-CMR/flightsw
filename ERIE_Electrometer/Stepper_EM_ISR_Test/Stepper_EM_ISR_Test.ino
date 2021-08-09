@@ -1,8 +1,8 @@
 #define PIN_DI_TRIGGER          3    // Digital input from experiment trigger (active high)
 #define PIN_DO_STEP_CP          4    // Digital output to stepper pulse pin (rising edge)
 #define PIN_DO_STEP_DIR         5    // Digital output to stepper direction pin (high to open, low to close)
-#define PIN_DO_12V_REG_ENABLE  A1    // Digital output to enable 12V regulator (active high) [LEDs/electrometer]
-#define PIN_DO_5V_REG_ENABLE   A2    // Digital output to enable 5V regulator (active high) [stepper]
+#define PIN_DO_12V_REG_ENABLE  A2    // Digital output to enable 12V regulator (active high) [LEDs/electrometer]
+#define PIN_DO_5V_REG_ENABLE   A1    // CHANGED for STEPPER ENABLE .... Digital output to enable 5V regulator (active high) [stepper]
 
 #define PIN_AI_EM_SIGNAL       A0    // Analog input from electrometer signal on pin 7 (0-5V, 2.5V zero)
 #define PIN_DO_EM_RESET         7    // Digital output to electrometer reset on pin 6 (active high)
@@ -297,6 +297,12 @@ void setup()
   Serial.begin(115200);
   Serial.println("Starting state machine");
 
+  pinMode(PIN_DO_5V_REG_ENABLE,  OUTPUT);
+  pinMode(PIN_DO_12V_REG_ENABLE, OUTPUT);
+
+  digitalWrite(PIN_DO_5V_REG_ENABLE,  LOW);
+  digitalWrite(PIN_DO_12V_REG_ENABLE, LOW);
+  
   pinMode(PIN_DI_TRIGGER, INPUT);
 
   pinMode(PIN_DO_STEP_CP,  OUTPUT);
@@ -305,10 +311,12 @@ void setup()
   digitalWrite(PIN_DO_STEP_CP,  LOW);
   digitalWrite(PIN_DO_STEP_DIR, LOW);
 
+//  pinMode(PIN_DO_EM_RESET, OUTPUT);
   pinMode(PIN_DO_EM_MUX_A, OUTPUT);
   pinMode(PIN_DO_EM_MUX_B, OUTPUT);
   pinMode(PIN_DO_EM_MUX_C, OUTPUT);
-
+  
+//  digitalWrite(PIN_DO_EM_RESET, LOW);
   digitalWrite(PIN_DO_EM_MUX_A, LOW);
   digitalWrite(PIN_DO_EM_MUX_B, LOW);
   digitalWrite(PIN_DO_EM_MUX_C, LOW);
