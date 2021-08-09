@@ -1,26 +1,23 @@
-// Define for setting register bits
-#ifndef cbi
-#define cbi(sfr, bit) (_SFR_BYTE(sfr) &= ~_BV(bit))
-#endif
-
-// Define for clearing register bits
-#ifndef sbi
-#define sbi(sfr, bit) (_SFR_BYTE(sfr) |=  _BV(bit))
-#endif
-
+#define PIN_DI_TRIGGER          3    // Digital input from experiment trigger (active high)
 #define PIN_DO_STEP_CP          4    // Digital output to stepper pulse pin (rising edge)
 #define PIN_DO_STEP_DIR         5    // Digital output to stepper direction pin (high to open, low to close)
+#define PIN_DO_12V_REG_ENABLE  A1    // Digital output to enable 12V regulator (active high) [LEDs/electrometer]
+#define PIN_DO_5V_REG_ENABLE   A2    // Digital output to enable 5V regulator (active high) [stepper]
 
+#define PIN_AI_EM_SIGNAL       A0    // Analog input from electrometer signal on pin 7 (0-5V, 2.5V zero)
+#define PIN_DO_EM_RESET         7    // Digital output to electrometer reset on pin 6 (active high)
 #define PIN_DO_EM_MUX_A         8    // Digital output to electrometer mux addr A on pin 3 (active high; LSB)
 #define PIN_DO_EM_MUX_B         9    // Digital output to electrometer mux addr B on pin 4 (active high)
 #define PIN_DO_EM_MUX_C        10    // Digital output to electrometer mux addr C on pin 5 (active high; MSB)
+#define PIN_DO_EM_MUX_MASK   0x07    // Base PORTB bit mask (do not change) (defaults to Arduino pins 8,  9, 10)
+#define PIN_DO_EM_MUX_SHIFT     0    // Left shift from B00000111 (shift of 1 would give Arduino pins 9, 10, 11)
+#define PIN_DO_EM_ADC           2    // Digital output for debugging electrometer ADC measurements
 
-#define PIN_DO_EM_ADC           2
-
-#define STEPPER_PULSES_TOTAL 3000    // Total number of stepper pulses in single direction
+#define STEPPER_PULSES       3000    // Total number of stepper pulses in single direction
 #define STEPPER_DELAY        5000    // Delay time in microseconds between directions
-
 #define MEASURE_DELAY        3000    // Delay between measurements and stepper operation
+#define TRIGGER_DELAY        1000    // Delay between two subsequent trigger state measurements
+#define REGULATOR_DELAY       500    // Delay after changing state of regulator
 
 unsigned int timer_pulse_count = 0;
 
@@ -37,25 +34,14 @@ volatile bool electrometer_enable = false;
 volatile uint8_t electrometer_channel = B000;
 volatile uint8_t electrometer_channel_buf = B000;
 
-volatile unsigned long adc_count = 0;
-volatile unsigned long adc_samps = 0;
-volatile unsigned long adc_value = 0;
+volatile unsigned long adc_count = 0, adc_count_buf = 0;
+volatile unsigned long adc_samps = 0, adc_samps_buf = 0;
+volatile unsigned long adc_value = 0, adc_value_buf = 0;
 
-volatile unsigned long adc_count_buf = 0;
-volatile unsigned long adc_samps_buf = 0;
-volatile unsigned long adc_value_buf = 0;
+volatile float adc_mean_old = 0., adc_mean_new = 0., adc_mean_buf = 0.;
 
-volatile float adc_mean_old = 0.;
-volatile float adc_mean_new = 0.;
-volatile float adc_mean_buf = 0.;
-
-volatile unsigned long adc_vari_old = 0;
-volatile unsigned long adc_vari_new = 0;
-volatile unsigned long adc_vari_buf = 0;
-
-volatile unsigned long adc_time_old = 0;
-volatile unsigned long adc_time_new = 0;
-volatile unsigned long adc_time_buf = 0;
+volatile unsigned long adc_vari_old = 0, adc_vari_new = 0, adc_vari_buf = 0;
+volatile unsigned long adc_time_old = 0, adc_time_new = 0, adc_time_buf = 0;
 
 volatile bool adc_data_ready = false;
 volatile bool adc_data_error = false;
@@ -157,7 +143,14 @@ void stop_timer()
 
 typedef enum
 {
+  STATE_DELAY,
   STATE_INITIALIZE,
+  STATE_TRIGGER_WAIT,
+  STATE_TRIGGER_VERIFY,
+  STATE_5V_REG_ENABLE,
+  STATE_5V_REG_DISABLE,
+  STATE_12V_REG_ENABLE,
+  STATE_12V_REG_DISABLE,
   STATE_ELECTROMETER_START,
   STATE_ELECTROMETER_STOP,
   STATE_STEPPER_RUN_OPENED,
@@ -175,17 +168,41 @@ typedef enum
 } door_states_t;
 
 states_t state = STATE_INITIALIZE;
+states_t state_next = STATE_INITIALIZE;
 unsigned long state_time = 0;
+unsigned long state_delay = 0;
 
 door_states_t door_state = DOOR_CLOSED;
 unsigned long door_state_time = 0;
 
 void state_transition(int new_state)
 {
+  state_transition(new_state, 0);
+}
+
+void state_transition(int new_state, unsigned long delay_time)
+{
   Serial.print("Transitioning to state ");
+  if(delay_time > 0)
+  {
+    state_delay = delay_time;
+    state_next = new_state;
+    new_state = STATE_DELAY;
+  }
   switch(new_state)
   {
+    case STATE_DELAY:
+      Serial.print("DELAY [");
+      Serial.print(delay_time);
+      Serial.println("]");
+      break;
     case STATE_INITIALIZE:         Serial.println("INITIALIZE");         break;
+    case STATE_TRIGGER_WAIT:       Serial.println("TRIGGER_WAIT");       break;
+    case STATE_TRIGGER_VERIFY:     Serial.println("TRIGGER_VERIFY");     break;
+    case STATE_5V_REG_ENABLE:      Serial.println("5V_REG_ENABLE");      break;
+    case STATE_5V_REG_DISABLE:     Serial.println("5V_REG_DISABLE");     break;
+    case STATE_12V_REG_ENABLE:     Serial.println("12V_REG_ENABLE");     break;
+    case STATE_12V_REG_DISABLE:    Serial.println("12V_REG_DISABLE");    break;
     case STATE_ELECTROMETER_START: Serial.println("ELECTROMETER_START"); break;
     case STATE_ELECTROMETER_STOP:  Serial.println("ELECTROMETER_STOP");  break;
     case STATE_STEPPER_RUN_OPENED: Serial.println("STEPPER_RUN_OPENED"); break;
@@ -213,11 +230,74 @@ void door_state_transition(int new_state)
   door_state_time = millis();
 }
 
+void adc_init()
+{
+
+  // Reset ADC registers
+  ADMUX  = 0x00;
+  ADCSRA = 0x00;
+
+  // Set ADC reference to AVCC and default to A0
+  ADMUX  |= (1 << REFS0);
+
+  // Enable ADC and auto-triggering
+  ADCSRA |= (1 << ADEN) | (1 << ADATE);
+
+  // Set ADC prescaler with B000: 2, B001: 2, B010: 4, B011:  8
+  //                        B100:16, B101:32, B110:64, B111:128
+  ADCSRA |= (1 << ADPS2) | (1 << ADPS1) | (1 << ADPS0);
+
+}
+
+void adc_start()
+{
+  // Re-initialize ADC variables
+  adc_samps = 0;
+  adc_count = 0;
+  adc_mean_old = 0.;
+  adc_mean_new = 0.;
+  adc_vari_old = 0;
+  adc_vari_new = 0;
+
+  // Enable ADC interrupts and start ADC conversions
+  ADCSRA |=  (1 << ADIE) |  (1 << ADSC);
+
+}
+
+void adc_stop()
+{
+
+  // Stop ADC conversions and disable ADC interrupts
+  ADCSRA &= ~(1 << ADSC) & ~(1 << ADIE);
+
+  if(adc_data_ready)
+  {
+    adc_data_error = true;
+  }
+
+  electrometer_channel_buf = electrometer_channel;
+
+  adc_time_old = adc_time_new;
+  adc_time_new = micros();
+  adc_time_buf = millis();
+
+  adc_samps_buf = adc_samps;
+  adc_count_buf = adc_count;
+
+  adc_mean_buf = adc_mean_new;
+  adc_vari_buf = adc_vari_new;
+
+  adc_data_ready = true;
+
+}
+
 void setup()
 {
 
   Serial.begin(115200);
   Serial.println("Starting state machine");
+
+  pinMode(PIN_DI_TRIGGER, INPUT);
 
   pinMode(PIN_DO_STEP_CP,  OUTPUT);
   pinMode(PIN_DO_STEP_DIR, OUTPUT);
@@ -228,16 +308,17 @@ void setup()
   pinMode(PIN_DO_EM_MUX_A, OUTPUT);
   pinMode(PIN_DO_EM_MUX_B, OUTPUT);
   pinMode(PIN_DO_EM_MUX_C, OUTPUT);
-  pinMode(PIN_DO_EM_ADC,   OUTPUT);
 
   digitalWrite(PIN_DO_EM_MUX_A, LOW);
   digitalWrite(PIN_DO_EM_MUX_B, LOW);
   digitalWrite(PIN_DO_EM_MUX_C, LOW);
-  digitalWrite(PIN_DO_EM_ADC,   LOW);
 
-  sbi(ADMUX,  REFS0);     // Set ADC reference to AVCC
-  sbi(ADCSRA, ADEN);      // Enable ADC
-  sbi(ADCSRA, ADATE);     // Enable auto-triggering
+  #ifdef PIN_DO_EM_ADC
+    pinMode(PIN_DO_EM_ADC, OUTPUT);
+    digitalWrite(PIN_DO_EM_ADC, LOW);
+  #endif
+
+  adc_init();
 
   state_transition(STATE_INITIALIZE);
 
@@ -252,21 +333,62 @@ void loop()
     case STATE_INITIALIZE:
       start_timer();
       door_state_transition(DOOR_CLOSED);
-      state_transition(STATE_ELECTROMETER_START);
+      state_transition(STATE_TRIGGER_WAIT);
+      break;
+
+    case STATE_DELAY:
+      if(millis() - state_time > state_delay)
+      {
+        state_transition(state_next);
+      }
+      break;
+
+    case STATE_TRIGGER_WAIT:
+      if(digitalRead(PIN_DI_TRIGGER) == HIGH)
+      {
+        state_transition(STATE_TRIGGER_VERIFY, TRIGGER_DELAY);
+      }
+      break;
+
+    case STATE_TRIGGER_VERIFY:
+      if(digitalRead(PIN_DI_TRIGGER) == HIGH)
+      {
+        state_transition(STATE_12V_REG_ENABLE);
+      }
+      else
+      {
+        state_transition(STATE_TRIGGER_WAIT);
+      }
+      break;
+
+    case STATE_5V_REG_ENABLE:
+      digitalWrite(PIN_DO_5V_REG_ENABLE, HIGH);
+      state_transition(STATE_STEPPER_RUN_OPENED, REGULATOR_DELAY);
+      break;
+
+    case STATE_5V_REG_DISABLE:
+      digitalWrite(PIN_DO_5V_REG_ENABLE, LOW);
+      state_transition(STATE_ELECTROMETER_STOP, MEASURE_DELAY);
+      break;
+
+    case STATE_12V_REG_ENABLE:
+      digitalWrite(PIN_DO_12V_REG_ENABLE, HIGH);
+      state_transition(STATE_ELECTROMETER_START, REGULATOR_DELAY);
+      break;
+
+    case STATE_12V_REG_DISABLE:
+      digitalWrite(PIN_DO_12V_REG_ENABLE, LOW);
+      state_transition(STATE_TERMINATE);
       break;
 
     case STATE_ELECTROMETER_START:
       electrometer_enable = true;
-      if(millis() - door_state_time > MEASURE_DELAY)
-      {
-        state_transition(STATE_STEPPER_RUN_OPENED);
-      }
+      state_transition(STATE_5V_REG_ENABLE, MEASURE_DELAY);
       break;
-
 
     case STATE_ELECTROMETER_STOP:
       electrometer_enable = false;
-      state_transition(STATE_IDLE);
+      state_transition(STATE_12V_REG_DISABLE, REGULATOR_DELAY);
       break;
 
     case STATE_STEPPER_RUN_OPENED:
@@ -300,18 +422,16 @@ void loop()
           {
             door_state_transition(DOOR_CLOSED);
             stepper_complete_flag = false;
+            state_transition(STATE_5V_REG_DISABLE, REGULATOR_DELAY);
           }
           break;
         case DOOR_OPENED:
-          if(millis() - door_state_time > STEPPER_DELAY)
-          {
-            state_transition(STATE_STEPPER_RUN_CLOSED);
-          }
+          state_transition(STATE_STEPPER_RUN_CLOSED, STEPPER_DELAY);
           break;
         case DOOR_CLOSED:
-          if(electrometer_enable && (millis() - door_state_time > MEASURE_DELAY))
+          if(electrometer_enable)
           {
-            state_transition(STATE_ELECTROMETER_STOP);
+            state_transition(STATE_ELECTROMETER_STOP, MEASURE_DELAY);
           }
           break;
         default:
@@ -399,7 +519,7 @@ ISR(TIMER1_COMPA_vect)
       if(stepper_pulse_state)
       {
         stepper_pulse_current++;
-        if(stepper_pulse_current >= STEPPER_PULSES_TOTAL)
+        if(stepper_pulse_current >= STEPPER_PULSES)
           stop_stepper();
       }
     }
@@ -410,56 +530,28 @@ ISR(TIMER1_COMPA_vect)
     switch(timer_pulse_count % MEASURE_MOD)
     {
       case 0:
-        electrometer_channel = ++electrometer_channel & B00000111;
-        PORTB = (PORTB & ~B00000111) | electrometer_channel;
+        electrometer_channel = ++electrometer_channel & PIN_DO_EM_MUX_MASK;
+        PORTB = (PORTB & ~(PIN_DO_EM_MUX_MASK << PIN_DO_EM_MUX_SHIFT)) | (electrometer_channel << PIN_DO_EM_MUX_SHIFT);
         break;
 
       // Clock cycle to enable ADC
       // Should be smaller than next case
       // Must be less than MEASURE_MOD
       case 10:
-        digitalWrite(PIN_DO_EM_ADC, HIGH);
-
-        adc_samps = 0;     // Re-initialize ADC sample counter
-        adc_count = 0;     // Re-initialize ADC count accumulator
-        adc_mean_old = 0.;
-        adc_mean_new = 0.;
-        adc_vari_old = 0;
-        adc_vari_new = 0;
-
-        sbi(ADCSRA, ADIE); // Enable ADC interrupts
-        sbi(ADCSRA, ADSC); // Start ADC conversions
-
+        #ifdef PIN_DO_EM_ADC
+          digitalWrite(PIN_DO_EM_ADC, HIGH);
+        #endif
+        adc_start();
         break;
 
       // Clock cycle to disable ADC
       // Should be larger than previous case
       // Must be less than MEASURE_MOD
       case 40:
-        cbi(ADCSRA, ADSC); // Stop ADC conversions
-        cbi(ADCSRA, ADIE); // Disable ADC interrupts
-
-        if(adc_data_ready)
-        {
-          adc_data_error = true;
-        }
-
-        adc_time_old = adc_time_new;
-        adc_time_new = micros();
-        adc_time_buf = millis();
-
-        electrometer_channel_buf = electrometer_channel;
-
-        adc_samps_buf = adc_samps;
-        adc_count_buf = adc_count;
-
-        adc_mean_buf = adc_mean_new;
-        adc_vari_buf = adc_vari_new;
-
-        adc_data_ready = true;
-
-        digitalWrite(PIN_DO_EM_ADC, LOW);
-
+        adc_stop();
+        #ifdef PIN_DO_EM_ADC
+          digitalWrite(PIN_DO_EM_ADC, LOW);
+        #endif
         break;
     }
 
