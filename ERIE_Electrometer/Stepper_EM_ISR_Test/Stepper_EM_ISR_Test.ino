@@ -1,4 +1,5 @@
 #define PIN_DI_TRIGGER          3    // Digital input from experiment trigger (active high)
+
 #define PIN_DO_STEP_CP          4    // Digital output to stepper pulse pin (rising edge)
 #define PIN_DO_STEP_DIR         5    // Digital output to stepper direction pin (high to open, low to close)
 #define PIN_DO_STEP_ENABLE     A1    // Digital output to stepper enable pin (active high)
@@ -20,9 +21,9 @@
 #define TRIGGER_DELAY        1000    // Delay between two subsequent trigger state measurements
 #define REGULATOR_DELAY       500    // Delay after changing state of regulator
 
-unsigned int timer_pulse_count = 0;
+volatile unsigned int timer_pulse_count = 0;
 
-unsigned int stepper_start_time = 0;
+volatile unsigned long stepper_start_time = 0;
 volatile unsigned int stepper_pulse_current = 0;
 volatile bool stepper_pulse_state = false;
 volatile bool stepper_complete_flag = false;
@@ -76,7 +77,7 @@ void start_timer()
   // Reset Timer1 registers
   TCCR1A = 0x00;
   TCCR1B = 0x00;
-  TCNT1 = 0x0000;
+  TCNT1  = 0x0000;
 
   // Load Timer1 compare match register
   // 16MHz/prescaler/2*period+1; for 5ms period, load 40001
@@ -86,8 +87,8 @@ void start_timer()
   // Enable Timer1 clear timer on compare match (CTC) mode
   TCCR1B |= (1 << WGM12);
 
-  // Set prescaler for timer with B001 for no prescaler and
-  // B010:8, B011:64, B100:64, B100:256, B101:1024
+  // Set prescaler for timer with B001 for no prescaler
+  // and B010:8, B011:64, B100:256, B101:1024
   TCCR1B |= (0 << CS12) | (0 << CS11) | (1 << CS10);
 
   // Enable timer compare interrupt
@@ -144,12 +145,11 @@ void stop_timer()
 
 typedef enum
 {
+
   STATE_DELAY,
   STATE_INITIALIZE,
   STATE_TRIGGER_WAIT,
   STATE_TRIGGER_VERIFY,
-  STATE_STEPPER_ENABLE,
-  STATE_STEPPER_DISABLE,
   STATE_12V_REG_ENABLE,
   STATE_12V_REG_DISABLE,
   STATE_ELECTROMETER_START,
@@ -158,14 +158,17 @@ typedef enum
   STATE_STEPPER_RUN_CLOSED,
   STATE_IDLE,
   STATE_TERMINATE
+
 } states_t;
 
 typedef enum
 {
+
   DOOR_OPENING,
   DOOR_OPENED,
   DOOR_CLOSING,
   DOOR_CLOSED
+
 } door_states_t;
 
 states_t state = STATE_INITIALIZE;
@@ -178,20 +181,28 @@ unsigned long door_state_time = 0;
 
 void state_transition(int new_state)
 {
+
   state_transition(new_state, 0);
+
 }
 
 void state_transition(int new_state, unsigned long delay_time)
 {
+
   Serial.print("Transitioning to state ");
+
   if(delay_time > 0)
   {
+
     state_delay = delay_time;
     state_next = new_state;
     new_state = STATE_DELAY;
+
   }
+
   switch(new_state)
   {
+
     case STATE_DELAY:
       Serial.print("DELAY [");
       Serial.print(delay_time);
@@ -200,8 +211,6 @@ void state_transition(int new_state, unsigned long delay_time)
     case STATE_INITIALIZE:         Serial.println("INITIALIZE");         break;
     case STATE_TRIGGER_WAIT:       Serial.println("TRIGGER_WAIT");       break;
     case STATE_TRIGGER_VERIFY:     Serial.println("TRIGGER_VERIFY");     break;
-    case STATE_STEPPER_ENABLE:     Serial.println("STEPPER_ENABLE");     break;
-    case STATE_STEPPER_DISABLE:    Serial.println("STEPPER_DISABLE");    break;
     case STATE_12V_REG_ENABLE:     Serial.println("12V_REG_ENABLE");     break;
     case STATE_12V_REG_DISABLE:    Serial.println("12V_REG_DISABLE");    break;
     case STATE_ELECTROMETER_START: Serial.println("ELECTROMETER_START"); break;
@@ -211,24 +220,33 @@ void state_transition(int new_state, unsigned long delay_time)
     case STATE_IDLE:               Serial.println("IDLE");               break;
     case STATE_TERMINATE:          Serial.println("TERMINATE");          break;
     default:                       Serial.println("UNKNOWN");            break;
+
   }
+
   state = new_state;
   state_time = millis();
+
 }
 
 void door_state_transition(int new_state)
 {
+
   Serial.print("Transitioning to door state ");
+
   switch(new_state)
   {
+
     case DOOR_OPENING: Serial.println("OPENING"); break;
     case DOOR_OPENED:  Serial.println("OPENED");  break;
     case DOOR_CLOSING: Serial.println("CLOSING"); break;
     case DOOR_CLOSED:  Serial.println("CLOSED");  break;
     default:           Serial.println("UNKNOWN"); break;
+
   }
+
   door_state = new_state;
   door_state_time = millis();
+
 }
 
 void adc_init()
@@ -252,6 +270,7 @@ void adc_init()
 
 void adc_start()
 {
+
   // Re-initialize ADC variables
   adc_samps = 0;
   adc_count = 0;
@@ -273,7 +292,9 @@ void adc_stop()
 
   if(adc_data_ready)
   {
+
     adc_data_error = true;
+
   }
 
   electrometer_channel_buf = electrometer_channel;
@@ -296,21 +317,21 @@ void setup()
 {
 
   Serial.begin(115200);
-  Serial.println("Starting state machine");
+  Serial.println("\n\nStarting state machine\n\n");
 
   pinMode(PIN_DI_TRIGGER, INPUT);
 
-  pinMode(PIN_DO_STEP_ENABLE,    OUTPUT);
+  pinMode(PIN_DO_STEP_CP,     OUTPUT);
+  pinMode(PIN_DO_STEP_DIR,    OUTPUT);
+  pinMode(PIN_DO_STEP_ENABLE, OUTPUT);
+
+  digitalWrite(PIN_DO_STEP_CP,     LOW);
+  digitalWrite(PIN_DO_STEP_DIR,    LOW);
+  digitalWrite(PIN_DO_STEP_ENABLE, LOW);
+
   pinMode(PIN_DO_12V_REG_ENABLE, OUTPUT);
 
-  digitalWrite(PIN_DO_STEP_ENABLE,    LOW);
   digitalWrite(PIN_DO_12V_REG_ENABLE, LOW);
-
-  pinMode(PIN_DO_STEP_CP,  OUTPUT);
-  pinMode(PIN_DO_STEP_DIR, OUTPUT);
-
-  digitalWrite(PIN_DO_STEP_CP,  LOW);
-  digitalWrite(PIN_DO_STEP_DIR, LOW);
 
   pinMode(PIN_DO_EM_RESET, OUTPUT);
   pinMode(PIN_DO_EM_MUX_A, OUTPUT);
@@ -348,36 +369,34 @@ void loop()
     case STATE_DELAY:
       if(millis() - state_time > state_delay)
       {
+
         state_transition(state_next);
+
       }
       break;
 
     case STATE_TRIGGER_WAIT:
       if(digitalRead(PIN_DI_TRIGGER) == HIGH)
       {
+
         state_transition(STATE_TRIGGER_VERIFY, TRIGGER_DELAY);
+
       }
       break;
 
     case STATE_TRIGGER_VERIFY:
       if(digitalRead(PIN_DI_TRIGGER) == HIGH)
       {
+
         state_transition(STATE_12V_REG_ENABLE);
+
       }
       else
       {
+
         state_transition(STATE_TRIGGER_WAIT);
+
       }
-      break;
-
-    case STATE_STEPPER_ENABLE:
-      digitalWrite(PIN_DO_STEP_ENABLE, HIGH);
-      state_transition(STATE_STEPPER_RUN_OPENED, REGULATOR_DELAY);
-      break;
-
-    case STATE_STEPPER_DISABLE:
-      digitalWrite(PIN_DO_STEP_ENABLE, LOW);
-      state_transition(STATE_ELECTROMETER_STOP, MEASURE_DELAY);
       break;
 
     case STATE_12V_REG_ENABLE:
@@ -392,7 +411,7 @@ void loop()
 
     case STATE_ELECTROMETER_START:
       electrometer_enable = true;
-      state_transition(STATE_STEPPER_ENABLE, MEASURE_DELAY);
+      state_transition(STATE_STEPPER_RUN_OPENED, MEASURE_DELAY);
       break;
 
     case STATE_ELECTROMETER_STOP:
@@ -402,7 +421,8 @@ void loop()
 
     case STATE_STEPPER_RUN_OPENED:
       Serial.println("Running stepper in opened direction");
-      digitalWrite(PIN_DO_STEP_DIR, HIGH);
+      digitalWrite(PIN_DO_STEP_ENABLE, HIGH);
+      digitalWrite(PIN_DO_STEP_DIR,    HIGH);
       start_stepper();
       door_state_transition(DOOR_OPENING);
       state_transition(STATE_IDLE);
@@ -410,7 +430,8 @@ void loop()
 
     case STATE_STEPPER_RUN_CLOSED:
       Serial.println("Running stepper in closed direction");
-      digitalWrite(PIN_DO_STEP_DIR, LOW);
+      digitalWrite(PIN_DO_STEP_ENABLE, HIGH);
+      digitalWrite(PIN_DO_STEP_DIR,    LOW);
       start_stepper();
       door_state_transition(DOOR_CLOSING);
       state_transition(STATE_IDLE);
@@ -419,32 +440,46 @@ void loop()
     case STATE_IDLE:
       switch(door_state)
       {
+
         case DOOR_OPENING:
           if(stepper_complete_flag)
           {
+
+            digitalWrite(PIN_DO_STEP_ENABLE, LOW);
             door_state_transition(DOOR_OPENED);
             stepper_complete_flag = false;
+
           }
           break;
+
         case DOOR_CLOSING:
           if(stepper_complete_flag)
           {
+
+            digitalWrite(PIN_DO_STEP_ENABLE, LOW);
             door_state_transition(DOOR_CLOSED);
             stepper_complete_flag = false;
-            state_transition(STATE_STEPPER_DISABLE, REGULATOR_DELAY);
+            state_transition(STATE_ELECTROMETER_STOP, MEASURE_DELAY);
+
           }
           break;
+
         case DOOR_OPENED:
           state_transition(STATE_STEPPER_RUN_CLOSED, STEPPER_DELAY);
           break;
+
         case DOOR_CLOSED:
           if(electrometer_enable)
           {
+
             state_transition(STATE_ELECTROMETER_STOP, MEASURE_DELAY);
+
           }
           break;
+
         default:
           break;
+
       }
       break;
 
@@ -456,38 +491,48 @@ void loop()
     default:
       state_transition(STATE_INITIALIZE);
       break;
+
   }
 
   if(electrometer_enable && adc_data_ready)
   {
 
-    String buffer = String(adc_time_new - adc_time_old) + String(", ");
-    buffer += String(electrometer_channel_buf) + String(", ") + String(adc_time_buf) + String(", ") + adc_count_buf + String(", ") + adc_samps_buf + String(", ") + String(adc_mean_buf, 3) + String(", ") + adc_vari_buf + String(", ") + String(adc_vari_buf/float(adc_samps_buf-1), 3);
+    String buffer = String(adc_time_new - adc_time_old) + String(", ") + String(electrometer_channel_buf) + String(", ") + String(adc_time_buf) + String(", ") + adc_count_buf + String(", ") + adc_samps_buf + String(", ") + String(adc_mean_buf, 3) + String(", ") + adc_vari_buf + String(", ") + String(adc_vari_buf/float(adc_samps_buf-1), 3);
+
     if(adc_data_error)
     {
+
       buffer += String(" [ERROR]");
       adc_data_error = false;
+
     }
+
     Serial.println(buffer);
+
     adc_data_ready = false;
+
   }
 
 }
 
 void push_adc_value(unsigned long adc_value)
 {
+
   adc_samps++;
 
   // https://www.johndcook.com/blog/standard_deviation/
   // See Knuth TAOCP vol 2, 3rd edition, page 232
   if (adc_samps == 1)
   {
+
     adc_mean_old = adc_value;
     adc_mean_new = adc_value;
     adc_vari_old = 0.0;
+
   }
   else
   {
+
     adc_mean_new = adc_mean_old + (adc_value - adc_mean_old)/adc_samps;
     // NOTE: Approximations are being made here for the sake of speed!
     //       Casting means to integers will introduce rounding errors!
@@ -496,18 +541,22 @@ void push_adc_value(unsigned long adc_value)
     // set up for next iteration
     adc_mean_old = adc_mean_new;
     adc_vari_old = adc_vari_new;
+
   }
+
 }
 
 // ADC interrupt
 ISR(ADC_vect)
 {
+
   // Make certain to read ADCL first as it locks the value and ADCH releases it
   adc_value = ADCL | (ADCH << 8);
 
   // Accumulate the ADC values
   adc_count += adc_value;
   push_adc_value(adc_value);
+
 }
 
 // Timer1 interrupt
@@ -518,8 +567,10 @@ ISR(TIMER1_COMPA_vect)
 
   if(stepper_enable)
   {
+
     if((timer_pulse_count % STEPPER_MOD) == 0)
     {
+
       // Invert pulse output pin
       stepper_pulse_state ^= true;
       update_stepper_pulse();
@@ -527,17 +578,27 @@ ISR(TIMER1_COMPA_vect)
       // Only count rising edges as valid steps
       if(stepper_pulse_state)
       {
+
         stepper_pulse_current++;
         if(stepper_pulse_current >= STEPPER_PULSES)
+        {
+
           stop_stepper();
+
+        }
+
       }
+
     }
+
   }
 
   if(electrometer_enable)
   {
+
     switch(timer_pulse_count % MEASURE_MOD)
     {
+
       case 0:
         electrometer_channel = ++electrometer_channel & PIN_DO_EM_MUX_MASK;
         PORTB = (PORTB & ~(PIN_DO_EM_MUX_MASK << PIN_DO_EM_MUX_SHIFT)) | (electrometer_channel << PIN_DO_EM_MUX_SHIFT);
@@ -562,7 +623,9 @@ ISR(TIMER1_COMPA_vect)
           digitalWrite(PIN_DO_EM_ADC, LOW);
         #endif
         break;
+
     }
 
   }
+
 }
