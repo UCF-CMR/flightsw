@@ -31,7 +31,7 @@
 
 File sd_card_file;
 char sd_card_filename[10] = {0};
-bool sd_card_enable = false;
+bool sd_card_enabled = false;
 
 volatile unsigned int timer_pulse_count = 0;
 
@@ -39,14 +39,15 @@ volatile unsigned long stepper_start_time = 0;
 volatile unsigned int stepper_pulse_current = 0;
 volatile bool stepper_pulse_state = false;
 volatile bool stepper_complete_flag = false;
-volatile bool stepper_enable = false;
+volatile bool stepper_enabled = false;
 
 #define STEPPER_MOD 1
 #define MEASURE_MOD 50
 
-volatile bool electrometer_enable = false;
-volatile uint8_t electrometer_channel = B000;
-volatile uint8_t electrometer_channel_buf = B000;
+volatile bool electrometer_enabled = false;
+volatile bool electrometer_running = false;
+volatile uint8_t electrometer_channel = 0xFF;
+volatile uint8_t electrometer_channel_buf = 0xFF;
 
 volatile unsigned long adc_count = 0, adc_count_buf = 0;
 volatile unsigned long adc_samps = 0, adc_samps_buf = 0;
@@ -65,7 +66,7 @@ void datalog(String data)
 
   Serial.print(data);
 
-  if(sd_card_enable && sd_card_file)
+  if(sd_card_enabled && sd_card_file)
   {
 
     sd_card_file.print(data);
@@ -79,7 +80,7 @@ void datalogln(String data)
 
   Serial.println(data);
 
-  if(sd_card_enable && sd_card_file)
+  if(sd_card_enabled && sd_card_file)
   {
 
     sd_card_file.println(data);
@@ -93,7 +94,7 @@ void datalog(char* data)
 
   Serial.print(data);
 
-  if(sd_card_enable && sd_card_file)
+  if(sd_card_enabled && sd_card_file)
   {
 
     sd_card_file.print(data);
@@ -107,7 +108,7 @@ void datalogln(char* data)
 
   Serial.println(data);
 
-  if(sd_card_enable && sd_card_file)
+  if(sd_card_enabled && sd_card_file)
   {
 
     sd_card_file.println(data);
@@ -179,14 +180,14 @@ void start_stepper()
   // Update stepper start time
   stepper_start_time = millis();
 
-  stepper_enable = true;
+  stepper_enabled = true;
 
 }
 
 void stop_stepper()
 {
 
-  stepper_enable = false;
+  stepper_enabled = false;
 
   // Display stepper status
   Serial.print("Stepper executed ");
@@ -321,6 +322,22 @@ void door_state_transition(int new_state)
 
 }
 
+void adc_reset()
+{
+  
+  adc_count = 0; adc_count_buf = 0;
+  adc_samps = 0; adc_samps_buf = 0;
+  adc_value = 0; adc_value_buf = 0;
+
+  adc_mean_old = 0.; adc_mean_new = 0.; adc_mean_buf = 0.;
+  adc_vari_old = 0 ; adc_vari_new = 0 ; adc_vari_buf = 0 ;
+  adc_time_old = 0 ; adc_time_new = 0 ; adc_time_buf = 0 ;
+
+  adc_data_ready = false;
+  adc_data_error = false;
+
+}
+
 void adc_init()
 {
 
@@ -391,10 +408,10 @@ void sd_card_start()
   unsigned int sd_card_fileindex = 0xFFFF;
 
   Serial.print("Initializing SD card ... ");
-  sd_card_enable = SD.begin(PIN_DO_SD_CARD_CS);
-  Serial.println(sd_card_enable ? "done!" : "fail!");
+  sd_card_enabled = SD.begin(PIN_DO_SD_CARD_CS);
+  Serial.println(sd_card_enabled ? "done!" : "fail!");
 
-  if(sd_card_enable)
+  if(sd_card_enabled)
   {
 
     do
@@ -417,15 +434,15 @@ void sd_card_start()
 void sd_card_create_file()
 {
 
-  if(sd_card_enable)
+  if(sd_card_enabled)
   {
 
     Serial.print("Creating file ");
     Serial.print(sd_card_filename);
     Serial.print(" ... ");
     sd_card_file = SD.open(sd_card_filename, O_WRITE | O_CREAT); // Faster than FILE_WRITE
-    sd_card_enable = (bool)sd_card_file;
-    Serial.println(sd_card_enable ? "done!" : "fail!");
+    sd_card_enabled = (bool)sd_card_file;
+    Serial.println(sd_card_enabled ? "done!" : "fail!");
 
   }
 
@@ -438,7 +455,7 @@ void sd_card_stop()
   {
 
     sd_card_file.close();
-    sd_card_enable = false;
+    sd_card_enabled = false;
 
   }
 
@@ -564,12 +581,15 @@ void loop()
       break;
 
     case STATE_ELECTROMETER_START:
-      electrometer_enable = true;
+      adc_reset();
+      electrometer_channel = 0xFF;
+      electrometer_enabled = true;
+      electrometer_running = false;
       state_transition(STATE_HV_REG_ENABLE, MEASURE_DELAY);
       break;
 
     case STATE_ELECTROMETER_STOP:
-      electrometer_enable = false;
+      electrometer_enabled = false;
       state_transition(STATE_12V_REG_DISABLE, REGULATOR_DELAY);
       break;
 
@@ -623,7 +643,7 @@ void loop()
           break;
 
         case DOOR_CLOSED:
-          if(electrometer_enable)
+          if(electrometer_enabled)
           {
 
             state_transition(STATE_ELECTROMETER_STOP, MEASURE_DELAY);
@@ -638,7 +658,6 @@ void loop()
       break;
 
     case STATE_TERMINATE:
-      electrometer_enable = false;
       stop_timer();
       sd_card_stop();
       break;
@@ -649,10 +668,10 @@ void loop()
 
   }
 
-  if(electrometer_enable && adc_data_ready)
+  if(electrometer_running && adc_data_ready)
   {
 
-    String buffer = String(adc_time_new - adc_time_old) + String(", ") + String(electrometer_channel_buf) + String(", ") + String(adc_time_buf) + String(", ") + adc_count_buf + String(", ") + adc_samps_buf + String(", ") + String(adc_mean_buf, 3) + String(", ") + adc_vari_buf + String(", ") + String(adc_vari_buf/float(adc_samps_buf-1), 3);
+    String buffer = String(adc_time_old ? adc_time_new - adc_time_old : 0) + String(", ") + String(electrometer_channel_buf) + String(", ") + String(adc_time_buf) + String(", ") + adc_count_buf + String(", ") + adc_samps_buf + String(", ") + String(adc_mean_buf, 3) + String(", ") + adc_vari_buf + String(", ") + String(adc_vari_buf/float(adc_samps_buf-1), 3);
 
     if(adc_data_error)
     {
@@ -720,7 +739,7 @@ ISR(TIMER1_COMPA_vect)
 
   timer_pulse_count = ++timer_pulse_count % (STEPPER_MOD*MEASURE_MOD);
 
-  if(stepper_enable)
+  if(stepper_enabled)
   {
 
     if((timer_pulse_count % STEPPER_MOD) == 0)
@@ -748,7 +767,15 @@ ISR(TIMER1_COMPA_vect)
 
   }
 
-  if(electrometer_enable)
+  if((timer_pulse_count % MEASURE_MOD) == 0)
+  {
+
+    // Synchronize electrometer state changes
+    electrometer_running = electrometer_enabled;
+
+  }
+
+  if(electrometer_running)
   {
 
     switch(timer_pulse_count % MEASURE_MOD)
