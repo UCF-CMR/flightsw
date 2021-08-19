@@ -1,3 +1,6 @@
+#ifndef SDCARD_HPP
+#define SDCARD_HPP
+
 #include <SD.h>
 
 class SDCard
@@ -9,11 +12,13 @@ class SDCard
     bool enabled = false;
     File file;
   public:
-    SDCard(void);
+    SDCard();
     void start(uint8_t pin);
-    void create_file(void);
-    void stop(void);
-    bool is_enabled(void);
+    void create_file();
+    void stop();
+    bool is_enabled();
 };
 
 extern SDCard sdcard;
+
+#endif

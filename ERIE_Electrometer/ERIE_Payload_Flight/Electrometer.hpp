@@ -1,3 +1,6 @@
+#ifndef ELECTROMETER_HPP
+#define ELECTROMETER_HPP
+
 #include <Arduino.h>
 
 class Electrometer
@@ -21,10 +24,10 @@ class Electrometer
     volatile bool adc_data_error = false;
 
   public:
-    void adc_reset(void);
-    void adc_init(void);
-    void adc_start(void);
-    void adc_stop(void);
+    void adc_reset();
+    void adc_init();
+    void adc_start();
+    void adc_stop();
 
     void push_adc_value(unsigned long adc_value);
 
@@ -63,3 +66,5 @@ class Electrometer
 };
 
 extern Electrometer electrometer;
+
+#endif

@@ -21,45 +21,24 @@
 #define PIN_DO_EM_MUX_SHIFT     0    // Left shift from B00000111 (shift of 1 would give Arduino pins 9, 10, 11)
 #define PIN_DO_EM_ADC           2    // Digital output for debugging electrometer ADC measurements
 
+#define STEPPER_DUTY_CYCLE     50    // Duty cycle for stepper pulse waveform (0 - 100)
 #define STEPPER_PULSES       3000    // Total number of stepper pulses in single direction
 #define STEPPER_DELAY        5000    // Delay time in microseconds between directions
 #define MEASURE_DELAY        3000    // Delay between measurements and stepper operation
 #define TRIGGER_DELAY        1000    // Delay between two subsequent trigger state measurements
 #define REGULATOR_DELAY       500    // Delay after changing state of regulator
 
+#define STEPPER_MOD            20    // Defines number of Timer1 rollovers after which to pulse stepper
+#define MEASURE_MOD           500    // Defines number of Timer1 rollovers after which to increment measurement channel
+#define MEASURE_PAD           100    // Defines margin of Timer1 rollovers when ADC is not measuring (2*MEASURE_PAD < MEASURE_MOD)
+
+#define STEPPER_DUTY_HIGH (STEPPER_MOD * STEPPER_DUTY_CYCLE) / 100
+
 #include "Datalog.hpp"
+#include "Stepper.hpp"
 #include "Electrometer.hpp"
 
 volatile unsigned int timer_pulse_count = 0;
-
-volatile unsigned long stepper_start_time = 0;
-volatile unsigned int stepper_pulse_current = 0;
-volatile bool stepper_pulse_state = false;
-volatile bool stepper_complete_flag = false;
-volatile bool stepper_enabled = false;
-
-#define STEPPER_MOD 1
-#define MEASURE_MOD 50
-
-void update_stepper_pulse()
-{
-
-  // Output current stepper state to pulse pin
-  digitalWrite(PIN_DO_STEP_CP, stepper_pulse_state ? HIGH : LOW);
-
-}
-
-void reset_stepper_pulse()
-{
-
-  // Initialize volatile variables
-  stepper_pulse_current = 0;
-  stepper_pulse_state = false;
-
-  // Update stepper pulse state
-  update_stepper_pulse();
-
-}
 
 void start_timer()
 {
@@ -73,9 +52,9 @@ void start_timer()
   TCNT1  = 0x0000;
 
   // Load Timer1 compare match register
-  // 16MHz/prescaler/2*period+1; for 5ms period, load 40001
+  // 16MHz/prescaler/2*period+1; for 500us period, load 4001
   // NOTE: may need to compensate for ISR computation time
-  OCR1A = 40093;
+  OCR1A = 4001;
 
   // Enable Timer1 clear timer on compare match (CTC) mode
   TCCR1B |= (1 << WGM12);
@@ -89,42 +68,6 @@ void start_timer()
 
   // Enable all interrupts
   sei();
-
-}
-
-void start_stepper()
-{
-
-  // Reset stepper pulse state
-  reset_stepper_pulse();
-
-  // Indicate stepper is not finished
-  stepper_complete_flag = false;
-
-  // Update stepper start time
-  stepper_start_time = millis();
-
-  stepper_enabled = true;
-
-}
-
-void stop_stepper()
-{
-
-  stepper_enabled = false;
-
-  // Display stepper status
-  Serial.print("Stepper executed ");
-  Serial.print(stepper_pulse_current);
-  Serial.print(" steps over ");
-  Serial.print(millis() - stepper_start_time);
-  Serial.println(" ms");
-
-  // Reset stepper pulse state
-  reset_stepper_pulse();
-
-  // Indicate stepper is finished
-  stepper_complete_flag = true;
 
 }
 
@@ -246,6 +189,17 @@ void door_state_transition(int new_state)
 
 }
 
+void print_stepper_status()
+{
+
+  datalog.print("Stepper executed ");
+  datalog.print(String(stepper.get_pulse_count()));
+  datalog.print(" steps over ");
+  datalog.print(String(stepper.get_stop_time() - stepper.get_start_time()));
+  datalog.println(" ms");
+
+}
+
 void setup()
 {
 
@@ -294,6 +248,7 @@ void setup()
   #endif
 
   electrometer.adc_init();
+  stepper.init(PIN_DO_STEP_ENABLE, PIN_DO_STEP_DIR, PIN_DO_STEP_CP);
 
   state_transition(STATE_INITIALIZE);
 
@@ -381,18 +336,20 @@ void loop()
 
     case STATE_STEPPER_RUN_OPENED:
       datalog.println("Running stepper in opened direction");
-      digitalWrite(PIN_DO_STEP_ENABLE, HIGH);
-      digitalWrite(PIN_DO_STEP_DIR,    HIGH);
-      start_stepper();
+      stepper.set_enabled(true);
+      stepper.set_enable_pin_state(true);
+      stepper.set_direction_pin_state(true);
+      stepper.start();
       door_state_transition(DOOR_OPENING);
       state_transition(STATE_IDLE);
       break;
 
     case STATE_STEPPER_RUN_CLOSED:
       datalog.println("Running stepper in closed direction");
-      digitalWrite(PIN_DO_STEP_ENABLE, HIGH);
-      digitalWrite(PIN_DO_STEP_DIR,    LOW);
-      start_stepper();
+      stepper.set_enabled(true);
+      stepper.set_enable_pin_state(true);
+      stepper.set_direction_pin_state(false);
+      stepper.start();
       door_state_transition(DOOR_CLOSING);
       state_transition(STATE_IDLE);
       break;
@@ -402,23 +359,25 @@ void loop()
       {
 
         case DOOR_OPENING:
-          if(stepper_complete_flag)
+          if(stepper.get_complete_flag())
           {
 
-            digitalWrite(PIN_DO_STEP_ENABLE, LOW);
+            print_stepper_status();
             door_state_transition(DOOR_OPENED);
-            stepper_complete_flag = false;
+            stepper.set_enable_pin_state(false);
+            stepper.set_complete_flag(false);
 
           }
           break;
 
         case DOOR_CLOSING:
-          if(stepper_complete_flag)
+          if(stepper.get_complete_flag())
           {
 
-            digitalWrite(PIN_DO_STEP_ENABLE, LOW);
+            print_stepper_status();
             door_state_transition(DOOR_CLOSED);
-            stepper_complete_flag = false;
+            stepper.set_enable_pin_state(false);
+            stepper.set_complete_flag(false);
             state_transition(STATE_HV_REG_DISABLE, REGULATOR_DELAY);
 
           }
@@ -497,29 +456,28 @@ ISR(TIMER1_COMPA_vect)
 
   timer_pulse_count = ++timer_pulse_count % (STEPPER_MOD*MEASURE_MOD);
 
-  if(stepper_enabled)
+  if(stepper.get_enabled())
   {
 
-    if((timer_pulse_count % STEPPER_MOD) == 0)
+    switch(timer_pulse_count % STEPPER_MOD)
     {
 
-      // Invert pulse output pin
-      stepper_pulse_state ^= true;
-      update_stepper_pulse();
+      case 0:
+        // Create rising edge for stepper
+        stepper.set_pulse_pin_state(true);
+        break;
 
-      // Only count rising edges as valid steps
-      if(stepper_pulse_state)
-      {
+      case STEPPER_DUTY_HIGH:
+        // Create falling edge based on duty cycle
+        stepper.set_pulse_pin_state(false);
 
-        stepper_pulse_current++;
-        if(stepper_pulse_current >= STEPPER_PULSES)
+        if(stepper.get_pulse_count() >= STEPPER_PULSES)
         {
 
-          stop_stepper();
+          stepper.stop();
 
         }
-
-      }
+        break;
 
     }
 
@@ -547,7 +505,7 @@ ISR(TIMER1_COMPA_vect)
       // Clock cycle to enable ADC
       // Should be smaller than next case
       // Must be less than MEASURE_MOD
-      case 10:
+      case MEASURE_PAD:
         #ifdef PIN_DO_EM_ADC
           digitalWrite(PIN_DO_EM_ADC, HIGH);
         #endif
@@ -557,7 +515,7 @@ ISR(TIMER1_COMPA_vect)
       // Clock cycle to disable ADC
       // Should be larger than previous case
       // Must be less than MEASURE_MOD
-      case 40:
+      case MEASURE_MOD-MEASURE_PAD:
         electrometer.adc_stop();
         #ifdef PIN_DO_EM_ADC
           digitalWrite(PIN_DO_EM_ADC, LOW);

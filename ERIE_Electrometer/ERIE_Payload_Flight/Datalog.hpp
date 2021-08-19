@@ -1,3 +1,6 @@
+#ifndef DATALOG_HPP
+#define DATALOG_HPP
+
 #include <Stream.h>
 #include "SDCard.hpp"
 
@@ -9,7 +12,7 @@ class Datalog
     File* sd_card_file;
     bool sd_card_enabled;
   public:
-    Datalog(void);
+    Datalog();
     void set_stream(Stream* s);
     void set_sd_card_file(File* f);
     void print(String data);
@@ -19,3 +22,5 @@ class Datalog
 };
 
 extern Datalog datalog;
+
+#endif
