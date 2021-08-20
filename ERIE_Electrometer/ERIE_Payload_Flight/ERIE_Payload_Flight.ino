@@ -127,7 +127,7 @@ void state_transition(int new_state)
 void state_transition(int new_state, unsigned long delay_time)
 {
 
-  datalog.print("Transitioning to state ");
+  datalog.print(F("Transitioning to state "));
 
   if(delay_time > 0)
   {
@@ -142,24 +142,24 @@ void state_transition(int new_state, unsigned long delay_time)
   {
 
     case STATE_DELAY:
-      datalog.print("DELAY [");
+      datalog.print(F("DELAY ["));
       datalog.print(String(delay_time));
-      datalog.println("]");
+      datalog.println(F("]"));
       break;
-    case STATE_INITIALIZE:         datalog.println("INITIALIZE");         break;
-    case STATE_TRIGGER_WAIT:       datalog.println("TRIGGER_WAIT");       break;
-    case STATE_TRIGGER_VERIFY:     datalog.println("TRIGGER_VERIFY");     break;
-    case STATE_12V_REG_ENABLE:     datalog.println("12V_REG_ENABLE");     break;
-    case STATE_12V_REG_DISABLE:    datalog.println("12V_REG_DISABLE");    break;
-    case STATE_HV_REG_ENABLE:      datalog.println("HV_REG_ENABLE");      break;
-    case STATE_HV_REG_DISABLE:     datalog.println("HV_REG_DISABLE");     break;
-    case STATE_ELECTROMETER_START: datalog.println("ELECTROMETER_START"); break;
-    case STATE_ELECTROMETER_STOP:  datalog.println("ELECTROMETER_STOP");  break;
-    case STATE_STEPPER_RUN_OPENED: datalog.println("STEPPER_RUN_OPENED"); break;
-    case STATE_STEPPER_RUN_CLOSED: datalog.println("STEPPER_RUN_CLOSED"); break;
-    case STATE_IDLE:               datalog.println("IDLE");               break;
-    case STATE_TERMINATE:          datalog.println("TERMINATE");          break;
-    default:                       datalog.println("UNKNOWN");            break;
+    case STATE_INITIALIZE:         datalog.println(F("INITIALIZE"));         break;
+    case STATE_TRIGGER_WAIT:       datalog.println(F("TRIGGER_WAIT"));       break;
+    case STATE_TRIGGER_VERIFY:     datalog.println(F("TRIGGER_VERIFY"));     break;
+    case STATE_12V_REG_ENABLE:     datalog.println(F("12V_REG_ENABLE"));     break;
+    case STATE_12V_REG_DISABLE:    datalog.println(F("12V_REG_DISABLE"));    break;
+    case STATE_HV_REG_ENABLE:      datalog.println(F("HV_REG_ENABLE"));      break;
+    case STATE_HV_REG_DISABLE:     datalog.println(F("HV_REG_DISABLE"));     break;
+    case STATE_ELECTROMETER_START: datalog.println(F("ELECTROMETER_START")); break;
+    case STATE_ELECTROMETER_STOP:  datalog.println(F("ELECTROMETER_STOP"));  break;
+    case STATE_STEPPER_RUN_OPENED: datalog.println(F("STEPPER_RUN_OPENED")); break;
+    case STATE_STEPPER_RUN_CLOSED: datalog.println(F("STEPPER_RUN_CLOSED")); break;
+    case STATE_IDLE:               datalog.println(F("IDLE"));               break;
+    case STATE_TERMINATE:          datalog.println(F("TERMINATE"));          break;
+    default:                       datalog.println(F("UNKNOWN"));            break;
 
   }
 
@@ -171,16 +171,16 @@ void state_transition(int new_state, unsigned long delay_time)
 void door_state_transition(int new_state)
 {
 
-  datalog.print("Transitioning to door state ");
+  datalog.print(F("Transitioning to door state "));
 
   switch(new_state)
   {
 
-    case DOOR_OPENING: datalog.println("OPENING"); break;
-    case DOOR_OPENED:  datalog.println("OPENED");  break;
-    case DOOR_CLOSING: datalog.println("CLOSING"); break;
-    case DOOR_CLOSED:  datalog.println("CLOSED");  break;
-    default:           datalog.println("UNKNOWN"); break;
+    case DOOR_OPENING: datalog.println(F("OPENING")); break;
+    case DOOR_OPENED:  datalog.println(F("OPENED"));  break;
+    case DOOR_CLOSING: datalog.println(F("CLOSING")); break;
+    case DOOR_CLOSED:  datalog.println(F("CLOSED"));  break;
+    default:           datalog.println(F("UNKNOWN")); break;
 
   }
 
@@ -192,11 +192,15 @@ void door_state_transition(int new_state)
 void print_stepper_status()
 {
 
-  datalog.print("Stepper executed ");
+  datalog.print(F("Stepper executed "));
   datalog.print(String(stepper.get_pulse_count()));
-  datalog.print(" steps over ");
+  datalog.print(F(" steps over "));
   datalog.print(String(stepper.get_stop_time() - stepper.get_start_time()));
-  datalog.println(" ms");
+  datalog.print(F(" ms ("));
+  datalog.print(String(STEPPER_DUTY_HIGH));
+  datalog.print(F("/"));
+  datalog.print(String(STEPPER_MOD));
+  datalog.println(F(" duty)"));
 
 }
 
@@ -205,7 +209,7 @@ void setup()
 
   Serial.begin(115200);
   datalog.set_stream(&Serial);
-  Serial.println("\n\nStarting state machine\n\n");
+  Serial.println(F("\n\nStarting state machine\n\n"));
 
   pinMode(PIN_DI_TRIGGER, INPUT);
 
@@ -335,7 +339,7 @@ void loop()
       break;
 
     case STATE_STEPPER_RUN_OPENED:
-      datalog.println("Running stepper in opened direction");
+      datalog.println(F("Running stepper in opened direction"));
       stepper.set_enabled(true);
       stepper.set_enable_pin_state(true);
       stepper.set_direction_pin_state(true);
@@ -345,7 +349,7 @@ void loop()
       break;
 
     case STATE_STEPPER_RUN_CLOSED:
-      datalog.println("Running stepper in closed direction");
+      datalog.println(F("Running stepper in closed direction"));
       stepper.set_enabled(true);
       stepper.set_enable_pin_state(true);
       stepper.set_direction_pin_state(false);
@@ -416,15 +420,15 @@ void loop()
   if(electrometer.get_running() && electrometer.get_adc_data_ready())
   {
 
-    String buffer = String(electrometer.get_adc_time_diff()) + String(", ") + String(electrometer.get_channel_buf())     + String(", ") +
-                    String(electrometer.get_adc_time_buf())  + String(", ") + String(electrometer.get_adc_count_buf())   + String(", ") +
-                    String(electrometer.get_adc_samps_buf()) + String(", ") + String(electrometer.get_adc_mean_buf(), 3) + String(", ") +
-                    String(electrometer.get_adc_vari_buf())  + String(", ") + String(electrometer.get_adc_vari_buf()/float(electrometer.get_adc_samps_buf()-1), 3);
+    String buffer = String(electrometer.get_adc_time_diff()) + String(F(", ")) + String(electrometer.get_channel_buf())     + String(F(", ")) +
+                    String(electrometer.get_adc_time_buf())  + String(F(", ")) + String(electrometer.get_adc_count_buf())   + String(F(", ")) +
+                    String(electrometer.get_adc_samps_buf()) + String(F(", ")) + String(electrometer.get_adc_mean_buf(), 3) + String(F(", ")) +
+                    String(electrometer.get_adc_vari_buf())  + String(F(", ")) + String(electrometer.get_adc_vari_buf()/float(electrometer.get_adc_samps_buf()-1), 3);
 
     if(electrometer.get_adc_data_error())
     {
 
-      buffer += String(" [ERROR]");
+      buffer += String(F(" [ERROR]"));
       electrometer.set_adc_data_error(false);
 
     }
