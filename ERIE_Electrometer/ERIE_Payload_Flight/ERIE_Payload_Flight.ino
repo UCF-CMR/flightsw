@@ -420,20 +420,31 @@ void loop()
   if(electrometer.get_running() && electrometer.get_adc_data_ready())
   {
 
-    String buffer = String(electrometer.get_adc_time_diff()) + String(F(", ")) + String(electrometer.get_channel_buf())     + String(F(", ")) +
-                    String(electrometer.get_adc_time_buf())  + String(F(", ")) + String(electrometer.get_adc_count_buf())   + String(F(", ")) +
-                    String(electrometer.get_adc_samps_buf()) + String(F(", ")) + String(electrometer.get_adc_mean_buf(), 3) + String(F(", ")) +
-                    String(electrometer.get_adc_vari_buf())  + String(F(", ")) + String(electrometer.get_adc_vari_buf()/float(electrometer.get_adc_samps_buf()-1), 3);
+    datalog.print(String(electrometer.get_adc_time_diff()));
+    datalog.print(F(", "));
+    datalog.print(String(electrometer.get_channel_buf()));
+    datalog.print(F(", "));
+    datalog.print(String(electrometer.get_adc_time_buf()));
+    datalog.print(F(", "));
+    datalog.print(String(electrometer.get_adc_count_buf()));
+    datalog.print(F(", "));
+    datalog.print(String(electrometer.get_adc_samps_buf()));
+    datalog.print(F(", "));
+    datalog.print(String(electrometer.get_adc_mean_buf(), 3));
+    datalog.print(F(", "));
+    datalog.print(String(electrometer.get_adc_vari_buf()));
+    datalog.print(F(", "));
+    datalog.print(String(electrometer.get_adc_vari_buf()/float(electrometer.get_adc_samps_buf()-1), 3));
 
     if(electrometer.get_adc_data_error())
     {
 
-      buffer += String(F(" [ERROR]"));
+      datalog.print(F(" [ERROR]"));
       electrometer.set_adc_data_error(false);
 
     }
 
-    datalog.println(buffer);
+    datalog.println(F(""));
 
     electrometer.set_adc_data_ready(false);
 
