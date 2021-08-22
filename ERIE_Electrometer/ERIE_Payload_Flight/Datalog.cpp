@@ -5,7 +5,7 @@ Datalog::Datalog()
   this->stream = NULL;
   this->stream_enabled = false;
   this->sd_card_file = NULL;
-  this->sd_card_enabled = false;  
+  this->sd_card_enabled = false;
 }
 
 void Datalog::set_stream(Stream* s)

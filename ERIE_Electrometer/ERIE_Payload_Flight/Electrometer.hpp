@@ -44,7 +44,7 @@ class Electrometer
     volatile unsigned long get_adc_samps();
     volatile unsigned long get_adc_samps_buf();
     void set_adc_samps(unsigned long adc_samps);
-    
+
     volatile unsigned long get_adc_value();
     volatile unsigned long get_adc_value_buf();
     void set_adc_value(unsigned long adc_value);

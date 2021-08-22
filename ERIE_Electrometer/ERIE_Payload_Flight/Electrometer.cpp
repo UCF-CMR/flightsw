@@ -2,7 +2,7 @@
 
 void Electrometer::adc_reset()
 {
-  
+
   this->adc_count = 0; this->adc_count_buf = 0;
   this->adc_samps = 0; this->adc_samps_buf = 0;
   this->adc_value = 0; this->adc_value_buf = 0;

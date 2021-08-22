@@ -120,6 +120,8 @@ void state_transition(int new_state)
 void state_transition(int new_state, unsigned long delay_time)
 {
 
+  datalog.print(String(millis()));
+  datalog.print(F(": "));
   datalog.print(F("Transitioning to state "));
 
   if(delay_time > 0)
@@ -166,6 +168,8 @@ void state_transition(int new_state, unsigned long delay_time)
 void print_stepper_status()
 {
 
+  datalog.print(String(millis()));
+  datalog.print(F(": "));
   datalog.print(F("Stepper executed "));
   datalog.print(String(stepper.get_pulse_count()));
   datalog.print(F(" steps over "));
@@ -183,7 +187,10 @@ void setup()
 
   Serial.begin(115200);
   datalog.set_stream(&Serial);
-  Serial.println(F("\n\nStarting state machine\n\n"));
+  Serial.print(F("\n\n"));
+  Serial.print(millis());
+  Serial.print(F(": Starting state machine"));
+  Serial.println(F("\n\n"));
 
   pinMode(PIN_DI_TRIGGER, INPUT);
 
@@ -363,7 +370,8 @@ void loop()
       else
       {
         // start stepper moving in opened direction
-        datalog.println(F("Running stepper in opened direction"));
+        datalog.print(String(millis()));
+        datalog.println(F(": Running stepper in opened direction"));
         stepper.set_enabled(true);
         stepper.set_enable_pin_state(true);
         stepper.start();
@@ -437,6 +445,8 @@ void loop()
   if(electrometer.get_running() && electrometer.get_adc_data_ready())
   {
 
+    datalog.print(String(millis()));
+    datalog.print(F(", "));
     datalog.print(String(electrometer.get_adc_time_diff()));
     datalog.print(F(", "));
     datalog.print(String(electrometer.get_channel_buf()));

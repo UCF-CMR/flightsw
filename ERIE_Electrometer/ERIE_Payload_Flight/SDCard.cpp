@@ -11,9 +11,10 @@ void SDCard::start(uint8_t p)
 {
 
   this->pin = p;
-  Serial.print("Initializing SD card ... ");
+  Serial.print(millis());
+  Serial.print(F(": Initializing SD card ... "));
   this->enabled = SD.begin(this->pin);
-  Serial.println(this->enabled ? "done!" : "fail!");
+  Serial.println(this->enabled ? F("done!") : F("fail!"));
 
   if(this->enabled)
   {
@@ -27,7 +28,8 @@ void SDCard::start(uint8_t p)
     }
     while(SD.exists(this->filename));
 
-    Serial.print("Next available file is ");
+    Serial.print(millis());
+    Serial.print(F(": Next available file is "));
     Serial.println(this->filename);
 
   }
@@ -40,12 +42,13 @@ void SDCard::create_file()
   if(this->enabled)
   {
 
-    Serial.print("Creating file ");
+    Serial.print(millis());
+    Serial.print(F(": Creating file "));
     Serial.print(this->filename);
     Serial.print(" ... ");
     this->file = SD.open(this->filename, O_WRITE | O_CREAT); // Faster than FILE_WRITE
     this->enabled = (bool)this->file;
-    Serial.println(this->enabled ? "done!" : "fail!");
+    Serial.println(this->enabled ? F("done!") : F("fail!"));
 
   }
 
