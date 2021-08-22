@@ -1,38 +1,40 @@
-#define PIN_DI_TRIGGER          3    // Digital input from experiment trigger (active high)
+#define PIN_DI_TRIGGER             3 // Digital input from experiment trigger (active high)
 
-#define PIN_DO_STEP_CP          4    // Digital output to stepper pulse pin (rising edge)
-#define PIN_DO_STEP_DIR         5    // Digital output to stepper direction pin (high to open, low to close)
-#define PIN_DO_STEP_ENABLE     A1    // Digital output to stepper enable pin (active high)
+#define PIN_DO_STEP_CP             4 // Digital output to stepper pulse pin (rising edge)
+#define PIN_DO_STEP_DIR            5 // Digital output to stepper direction pin (high to open, low to close)
+#define PIN_DO_STEP_ENABLE        A1 // Digital output to stepper enable pin (active high)
 
-#define PIN_DO_12V_REG_ENABLE  A2    // Digital output to 12V regulator enable pin (active high) [LEDs/electrometer]
-#define PIN_DO_HV_REG_ENABLE    6    // Digital output to high voltage regulator enable pin (active high)
+#define PIN_DO_12V_REG_ENABLE     A2 // Digital output to 12V regulator enable pin (active high) [LEDs/electrometer]
+#define PIN_DO_HV_REG_ENABLE       6 // Digital output to high voltage regulator enable pin (active high)
 
-#define PIN_DO_SD_CARD_MOSI    11    // Digital output to microSD board pin 4 (SPI MOSI)
-#define PIN_DI_SD_CARD_MISO    12    // Digital input from microSD board pin 3 (SPI MISO)
-#define PIN_DO_SD_CARD_SCK     13    // Digital output to microSD board pin 5 (SPI SCK)
-#define PIN_DO_SD_CARD_CS      A3    // Digital output to microSD board pin 6 (SPI CS)
+#define PIN_DO_SD_CARD_MOSI       11 // Digital output  to microSD board pin 4 (SPI MOSI) [for reference, not used]
+#define PIN_DI_SD_CARD_MISO       12 // Digital input from microSD board pin 3 (SPI MISO) [for reference, not used]
+#define PIN_DO_SD_CARD_SCK        13 // Digital output  to microSD board pin 5 (SPI SCK)  [for reference, not used]
+#define PIN_DO_SD_CARD_CS         A3 // Digital output  to microSD board pin 6 (SPI CS)
 
-#define PIN_AI_EM_SIGNAL       A0    // Analog input from electrometer signal on pin 7 (0-5V, 2.5V zero)
-#define PIN_DO_EM_RESET         7    // Digital output to electrometer reset on pin 6 (active high)
-#define PIN_DO_EM_MUX_A         8    // Digital output to electrometer mux addr A on pin 3 (active high; LSB)
-#define PIN_DO_EM_MUX_B         9    // Digital output to electrometer mux addr B on pin 4 (active high)
-#define PIN_DO_EM_MUX_C        10    // Digital output to electrometer mux addr C on pin 5 (active high; MSB)
-#define PIN_DO_EM_MUX_MASK   0x07    // Base PORTB bit mask (do not change) (defaults to Arduino pins 8,  9, 10)
-#define PIN_DO_EM_MUX_SHIFT     0    // Left shift from B00000111 (shift of 1 would give Arduino pins 9, 10, 11)
-#define PIN_DO_EM_ADC           2    // Digital output for debugging electrometer ADC measurements
+#define PIN_AI_EM_SIGNAL          A0 // Analog input from electrometer signal on pin 7 (0-5V, 2.5V zero) [default, not used]
+#define PIN_DO_EM_RESET            7 // Digital output to electrometer reset on pin 6 (active high)
+#define PIN_DO_EM_MUX_A            8 // Digital output to electrometer mux addr A on pin 3 (active high; LSB) [must match mask]
+#define PIN_DO_EM_MUX_B            9 // Digital output to electrometer mux addr B on pin 4 (active high)      [must match mask]
+#define PIN_DO_EM_MUX_C           10 // Digital output to electrometer mux addr C on pin 5 (active high; MSB) [must match mask]
+#define PIN_DO_EM_MUX_MASK      0x07 // Base PORTB bit mask (do not change) (defaults to Arduino pins 8,  9, 10) [must match pin defs]
+#define PIN_DO_EM_MUX_SHIFT        0 // Left shift from B00000111 (shift of 1 would give Arduino pins 9, 10, 11) [must match pin defs]
+#define PIN_DO_EM_ADC              2 // Digital output for debugging electrometer ADC measurements [comment out to remove debug signal]
 
-#define STEPPER_DUTY_CYCLE     50    // Duty cycle for stepper pulse waveform (0 - 100)
-#define STEPPER_PULSES      21500    // Total number of stepper pulses in single direction (4x microstep)
-#define MEASURE_DELAY        3000    // Minimum delay after trigger to take measurements before starting
-#define TRIGGER_DELAY        1000    // Delay between two subsequent trigger state measurements
-#define REGULATOR_DELAY       500    // Delay before/after changing state of regulator
-#define SETTLE_DELAY        15000    // Delay after enabling high voltage prior to starting stepper
-#define STEPPER_OPENED_DELAY 2000    // Delay after stepper has opened
-#define STEPPER_CLOSED_DELAY 2000    // Delay after stepper has closed
+#define STEPPER_DUTY_CYCLE        50 // Duty cycle for stepper pulse waveform (0 - 100)
+#define STEPPER_PULSES         21500 // Total number of stepper pulses in single direction (4x microstep)
+#define MEASURE_DELAY           3000 // Minimum delay after trigger to take measurements before starting
+#define TRIGGER_DELAY           1000 // Delay between two subsequent trigger state measurements
+#define REGULATOR_DELAY          500 // Delay before/after changing state of regulator
+#define SETTLE_DELAY           15000 // Delay after enabling high voltage prior to starting stepper
+#define CORONA_DELAY           10000 // Delay between door cycles to observe corona in darkness
+#define STEPPER_OPENED_DELAY    2000 // Delay after stepper has opened
+#define STEPPER_CLOSED_DELAY    2000 // Delay after stepper has closed
+#define STEPPER_INTERIM_DELAY   5000 // Delay before stepper opens during interim
 
-#define STEPPER_MOD             5    // Defines number of Timer1 rollovers after which to pulse stepper
-#define MEASURE_MOD           500    // Defines number of Timer1 rollovers after which to increment measurement channel
-#define MEASURE_PAD           100    // Defines margin of Timer1 rollovers when ADC is not measuring (2*MEASURE_PAD < MEASURE_MOD)
+#define STEPPER_MOD                5 // Defines number of Timer1 rollovers after which to pulse stepper
+#define MEASURE_MOD              500 // Defines number of Timer1 rollovers after which to increment measurement channel
+#define MEASURE_PAD              100 // Defines margin of Timer1 rollovers when ADC is not measuring (2*MEASURE_PAD < MEASURE_MOD)
 
 #define STEPPER_DUTY_HIGH (STEPPER_MOD * STEPPER_DUTY_CYCLE) / 100
 
@@ -264,7 +266,21 @@ void loop()
       electrometer.set_channel(0xFF);
       electrometer.set_enabled(true);
       electrometer.set_running(false);
-      state_transition(STATE_COAST_TRIGGER_WAIT, MEASURE_DELAY);
+
+      // If door already cycled once, start next door cycle
+      if(door_cycle_count >= 1)
+      {
+
+        state_transition(STATE_STEPPER_RUN_OPENED, STEPPER_INTERIM_DELAY);
+
+      }
+      // otherwise wait for microgravity coast start trigger
+      else
+      {
+
+        state_transition(STATE_COAST_TRIGGER_WAIT, MEASURE_DELAY);
+
+      }
       break;
 
     case STATE_COAST_TRIGGER_WAIT:
@@ -338,7 +354,7 @@ void loop()
             // otherwise, perform actions that occur between door cycles
             else
             {
-              state_transition(STATE_STEPPER_RUN_OPENED, STEPPER_CLOSED_DELAY);
+              state_transition(STATE_ELECTROMETER_DISABLE, STEPPER_CLOSED_DELAY);
             }
           }
         }
@@ -390,7 +406,21 @@ void loop()
 
     case STATE_12V_REG_DISABLE:
       digitalWrite(PIN_DO_12V_REG_ENABLE, LOW);
-      state_transition(STATE_TERMINATE);
+
+      // If door already cycled twice, continue shutting things down
+      if(door_cycle_count >= 2)
+      {
+
+        state_transition(STATE_TERMINATE);
+
+      }
+      // Otherwise, start regulator again after observation delay
+      else
+      {
+
+        state_transition(STATE_12V_REG_ENABLE, CORONA_DELAY);
+
+      }
       break;
 
     case STATE_TERMINATE:
