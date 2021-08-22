@@ -22,14 +22,15 @@
 #define PIN_DO_EM_ADC           2    // Digital output for debugging electrometer ADC measurements
 
 #define STEPPER_DUTY_CYCLE     50    // Duty cycle for stepper pulse waveform (0 - 100)
-#define STEPPER_PULSES       3000    // Total number of stepper pulses in single direction
-#define STEPPER_DELAY        5000    // Delay time in microseconds between directions
-#define MEASURE_DELAY        3000    // Delay between measurements and stepper operation
+#define STEPPER_PULSES      21500    // Total number of stepper pulses in single direction (4x microstep)
+#define MEASURE_DELAY        3000    // Minimum delay after trigger to take measurements before starting
 #define TRIGGER_DELAY        1000    // Delay between two subsequent trigger state measurements
-#define REGULATOR_DELAY       500    // Delay after changing state of regulator
-#define STEPPER_OPEN_DELAY   5000
+#define REGULATOR_DELAY       500    // Delay before/after changing state of regulator
+#define SETTLE_DELAY        15000    // Delay after enabling high voltage prior to starting stepper
+#define STEPPER_OPENED_DELAY 2000    // Delay after stepper has opened
+#define STEPPER_CLOSED_DELAY 2000    // Delay after stepper has closed
 
-#define STEPPER_MOD            20    // Defines number of Timer1 rollovers after which to pulse stepper
+#define STEPPER_MOD             5    // Defines number of Timer1 rollovers after which to pulse stepper
 #define MEASURE_MOD           500    // Defines number of Timer1 rollovers after which to increment measurement channel
 #define MEASURE_PAD           100    // Defines margin of Timer1 rollovers when ADC is not measuring (2*MEASURE_PAD < MEASURE_MOD)
 
@@ -39,6 +40,7 @@
 #include "Stepper.hpp"
 #include "Electrometer.hpp"
 
+volatile uint8_t door_cycle_count = 0;
 volatile unsigned int timer_pulse_count = 0;
 
 void start_timer()
@@ -85,18 +87,19 @@ typedef enum
 
   STATE_DELAY,
   STATE_INITIALIZE,
-  STATE_TRIGGER_WAIT,
-  STATE_TRIGGER_VERIFY,
+  STATE_COAST_TRIGGER_WAIT,
+  STATE_COAST_TRIGGER_VERIFY,
   STATE_12V_REG_ENABLE,
   STATE_12V_REG_DISABLE,
   STATE_HV_REG_ENABLE,
   STATE_HV_REG_DISABLE,
-  STATE_ELECTROMETER_START,
-  STATE_ELECTROMETER_STOP,
+  STATE_ELECTROMETER_ENABLE,
+  STATE_ELECTROMETER_DISABLE,
   STATE_STEPPER_RUN_OPENED,
-  STATE_STEPPER_RUN_OPENED_WAIT,
   STATE_STEPPER_RUN_CLOSED,
-  STATE_STEPPER_RUN_CLOSED_WAIT,
+  STATE_STEPPER_RUN,
+  STATE_CHUTE_TRIGGER_WAIT,
+  STATE_CHUTE_TRIGGER_VERIFY,
   STATE_TERMINATE
 
 } states_t;
@@ -136,16 +139,17 @@ void state_transition(int new_state, unsigned long delay_time)
       break;
     case STATE_INITIALIZE:              datalog.println(F("INITIALIZE"));              break;
     case STATE_12V_REG_ENABLE:          datalog.println(F("12V_REG_ENABLE"));          break;
-    case STATE_ELECTROMETER_START:      datalog.println(F("ELECTROMETER_START"));      break;
-    case STATE_TRIGGER_WAIT:            datalog.println(F("TRIGGER_WAIT"));            break;
-    case STATE_TRIGGER_VERIFY:          datalog.println(F("TRIGGER_VERIFY"));          break;
+    case STATE_ELECTROMETER_ENABLE:     datalog.println(F("ELECTROMETER_ENABLE"));     break;
+    case STATE_COAST_TRIGGER_WAIT:      datalog.println(F("COAST_TRIGGER_WAIT"));      break;
+    case STATE_COAST_TRIGGER_VERIFY:    datalog.println(F("COAST_TRIGGER_VERIFY"));    break;
     case STATE_HV_REG_ENABLE:           datalog.println(F("HV_REG_ENABLE"));           break;
     case STATE_STEPPER_RUN_OPENED:      datalog.println(F("STEPPER_RUN_OPENED"));      break;
-    case STATE_STEPPER_RUN_OPENED_WAIT: datalog.println(F("STEPPER_RUN_OPENED_WAIT")); break;
     case STATE_STEPPER_RUN_CLOSED:      datalog.println(F("STEPPER_RUN_CLOSED"));      break;
-    case STATE_STEPPER_RUN_CLOSED_WAIT: datalog.println(F("STEPPER_RUN_CLOSED_WAIT")); break;
+    case STATE_STEPPER_RUN:             datalog.println(F("STEPPER_RUN"));             break;
     case STATE_HV_REG_DISABLE:          datalog.println(F("HV_REG_DISABLE"));          break;
-    case STATE_ELECTROMETER_STOP:       datalog.println(F("ELECTROMETER_STOP"));       break;
+    case STATE_CHUTE_TRIGGER_WAIT:      datalog.println(F("CHUTE_TRIGGER_WAIT"));      break;
+    case STATE_CHUTE_TRIGGER_VERIFY:    datalog.println(F("CHUTE_TRIGGER_VERIFY"));    break;
+    case STATE_ELECTROMETER_DISABLE:    datalog.println(F("ELECTROMETER_DISABLE"));    break;
     case STATE_12V_REG_DISABLE:         datalog.println(F("12V_REG_DISABLE"));         break;
     case STATE_TERMINATE:               datalog.println(F("TERMINATE"));               break;
     default:                            datalog.println(F("UNKNOWN"));                 break;
@@ -221,8 +225,12 @@ void setup()
 
   electrometer.adc_init();
   stepper.init(PIN_DO_STEP_ENABLE, PIN_DO_STEP_DIR, PIN_DO_STEP_CP);
+  sdcard.start(PIN_DO_SD_CARD_CS);
+  sdcard.create_file();
+  datalog.set_sd_card_file(sdcard.get_file());
 
   state_transition(STATE_INITIALIZE);
+
 
 }
 
@@ -242,35 +250,33 @@ void loop()
       break;
 
     case STATE_INITIALIZE:
-      sdcard.start(PIN_DO_SD_CARD_CS);
-      sdcard.create_file();
       start_timer();
       state_transition(STATE_12V_REG_ENABLE);
       break;
 
     case STATE_12V_REG_ENABLE:
       digitalWrite(PIN_DO_12V_REG_ENABLE, HIGH);
-      state_transition(STATE_ELECTROMETER_START, REGULATOR_DELAY);
+      state_transition(STATE_ELECTROMETER_ENABLE, REGULATOR_DELAY);
       break;
 
-    case STATE_ELECTROMETER_START:
+    case STATE_ELECTROMETER_ENABLE:
       electrometer.adc_reset();
       electrometer.set_channel(0xFF);
       electrometer.set_enabled(true);
       electrometer.set_running(false);
-      state_transition(STATE_TRIGGER_WAIT, MEASURE_DELAY);
+      state_transition(STATE_COAST_TRIGGER_WAIT, MEASURE_DELAY);
       break;
 
-    case STATE_TRIGGER_WAIT:
+    case STATE_COAST_TRIGGER_WAIT:
       if(digitalRead(PIN_DI_TRIGGER) == HIGH)
       {
 
-        state_transition(STATE_TRIGGER_VERIFY, TRIGGER_DELAY);
+        state_transition(STATE_COAST_TRIGGER_VERIFY, TRIGGER_DELAY);
 
       }
       break;
 
-    case STATE_TRIGGER_VERIFY:
+    case STATE_COAST_TRIGGER_VERIFY:
       if(digitalRead(PIN_DI_TRIGGER) == HIGH)
       {
 
@@ -280,60 +286,104 @@ void loop()
       else
       {
 
-        state_transition(STATE_TRIGGER_WAIT);
+        state_transition(STATE_COAST_TRIGGER_WAIT);
 
       }
       break;
 
     case STATE_HV_REG_ENABLE:
       digitalWrite(PIN_DO_HV_REG_ENABLE, HIGH);
-      state_transition(STATE_STEPPER_RUN_OPENED, REGULATOR_DELAY);
+      state_transition(STATE_STEPPER_RUN_OPENED, SETTLE_DELAY);
       break;
 
     case STATE_STEPPER_RUN_OPENED:
-      datalog.println(F("Running stepper in opened direction"));
-      stepper.set_enabled(true);
-      stepper.set_enable_pin_state(true);
       stepper.set_direction_pin_state(true);
-      stepper.start();
-      state_transition(STATE_STEPPER_RUN_OPENED_WAIT);
-      break;
-
-    case STATE_STEPPER_RUN_OPENED_WAIT:
-      if(stepper.get_complete_flag())
-      {
-        print_stepper_status();
-        stepper.set_enable_pin_state(false);
-        stepper.set_complete_flag(false);
-        state_transition(STATE_STEPPER_RUN_CLOSED, STEPPER_OPEN_DELAY);
-      }
+      state_transition(STATE_STEPPER_RUN);
       break;
 
     case STATE_STEPPER_RUN_CLOSED:
-      datalog.println(F("Running stepper in closed direction"));
-      stepper.set_enabled(true);
-      stepper.set_enable_pin_state(true);
       stepper.set_direction_pin_state(false);
-      stepper.start();
-      state_transition(STATE_STEPPER_RUN_CLOSED_WAIT);
+      state_transition(STATE_STEPPER_RUN);
       break;
 
-    case STATE_STEPPER_RUN_CLOSED_WAIT:
-      if(stepper.get_complete_flag())
+    case STATE_STEPPER_RUN:
+      // If stepper is already running,
+      if(stepper.get_enabled() || stepper.get_enable_pin_state())
       {
-        print_stepper_status();
-        stepper.set_enable_pin_state(false);
-        stepper.set_complete_flag(false);
-        state_transition(STATE_HV_REG_DISABLE, REGULATOR_DELAY);
+
+        // check if it has completed moving, then
+        if(stepper.get_complete_flag())
+        {
+
+          // print out status, reset,
+          print_stepper_status();
+          stepper.set_enable_pin_state(false);
+          stepper.set_complete_flag(false);
+
+          // and, if opened, transition to closing
+          if(stepper.get_direction_pin_state())
+          {
+            state_transition(STATE_STEPPER_RUN_CLOSED, STEPPER_OPENED_DELAY);
+          }
+          // but, if closed,
+          else
+          {
+            // increment door cycle count
+            door_cycle_count++;
+            // and if already cycled twice, start shutting things down
+            if(door_cycle_count >= 2)
+            {
+              state_transition(STATE_HV_REG_DISABLE, TRIGGER_DELAY);
+            }
+            // otherwise, perform actions that occur between door cycles
+            else
+            {
+              state_transition(STATE_STEPPER_RUN_OPENED, STEPPER_CLOSED_DELAY);
+            }
+          }
+        }
+      }
+      // If stepper has not been started yet
+      else
+      {
+        // start stepper moving in opened direction
+        datalog.println(F("Running stepper in opened direction"));
+        stepper.set_enabled(true);
+        stepper.set_enable_pin_state(true);
+        stepper.start();
       }
       break;
 
     case STATE_HV_REG_DISABLE:
       digitalWrite(PIN_DO_HV_REG_ENABLE, LOW);
-      state_transition(STATE_ELECTROMETER_STOP, MEASURE_DELAY);
+      state_transition(STATE_CHUTE_TRIGGER_WAIT, MEASURE_DELAY);
       break;
 
-    case STATE_ELECTROMETER_STOP:
+    case STATE_CHUTE_TRIGGER_WAIT:
+      if(digitalRead(PIN_DI_TRIGGER) == HIGH)
+      {
+
+        state_transition(STATE_CHUTE_TRIGGER_VERIFY, TRIGGER_DELAY);
+
+      }
+      break;
+
+    case STATE_CHUTE_TRIGGER_VERIFY:
+      if(digitalRead(PIN_DI_TRIGGER) == HIGH)
+      {
+
+        state_transition(STATE_ELECTROMETER_DISABLE, TRIGGER_DELAY);
+
+      }
+      else
+      {
+
+        state_transition(STATE_CHUTE_TRIGGER_WAIT);
+
+      }
+      break;
+
+    case STATE_ELECTROMETER_DISABLE:
       electrometer.set_enabled(false);
       state_transition(STATE_12V_REG_DISABLE, REGULATOR_DELAY);
       break;

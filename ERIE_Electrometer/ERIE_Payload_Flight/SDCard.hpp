@@ -15,6 +15,7 @@ class SDCard
     SDCard();
     void start(uint8_t pin);
     void create_file();
+    File* get_file();
     void stop();
     bool is_enabled();
 };

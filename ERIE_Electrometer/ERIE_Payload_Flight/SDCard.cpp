@@ -27,9 +27,8 @@ void SDCard::start(uint8_t p)
     }
     while(SD.exists(this->filename));
 
-    Serial.print("Will create file ");
-    Serial.print(this->filename);
-    Serial.println(" on trigger");
+    Serial.print("Next available file is ");
+    Serial.println(this->filename);
 
   }
 
@@ -50,6 +49,11 @@ void SDCard::create_file()
 
   }
 
+}
+
+File* SDCard::get_file()
+{
+  return &this->file;
 }
 
 void SDCard::stop()
