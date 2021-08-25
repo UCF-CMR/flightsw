@@ -22,7 +22,7 @@
 #define PIN_DO_EM_ADC              2 // Digital output for debugging electrometer ADC measurements [comment out to remove debug signal]
 
 #define STEPPER_DUTY_CYCLE        50 // Duty cycle for stepper pulse waveform (0 - 100)
-#define STEPPER_PULSES         21500 // Total number of stepper pulses in single direction (4x microstep)
+#define STEPPER_PULSES         10750 // Total number of stepper pulses in single direction (2x microstep)
 #define MEASURE_DELAY           3000 // Minimum delay after trigger to take measurements before starting
 #define TRIGGER_DELAY           1000 // Delay between two subsequent trigger state measurements
 #define REGULATOR_DELAY          500 // Delay before/after changing state of regulator
@@ -32,7 +32,7 @@
 #define STEPPER_CLOSED_DELAY    2000 // Delay after stepper has closed
 #define STEPPER_INTERIM_DELAY   5000 // Delay before stepper opens during interim
 
-#define STEPPER_MOD                5 // Defines number of Timer1 rollovers after which to pulse stepper
+#define STEPPER_MOD               10 // Defines number of Timer1 rollovers after which to pulse stepper
 #define MEASURE_MOD              500 // Defines number of Timer1 rollovers after which to increment measurement channel
 #define MEASURE_PAD              100 // Defines margin of Timer1 rollovers when ADC is not measuring (2*MEASURE_PAD < MEASURE_MOD)
 
