@@ -26,7 +26,7 @@ if os.path.exists(profile) and os.path.isfile(profile):
                 profhead[line[0]] = eval(line[1])
             elif len(line) == 1:
                 dataline = line[0].split(',')
-                profdata.append([int(dataline[0])]+dataline[1:])
+                profdata.append([float(dataline[0])]+dataline[1:])
 
     if 'OFFSET' in profhead:
         for data in profdata:
