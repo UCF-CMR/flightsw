@@ -113,7 +113,7 @@ for i in channels:
     fault_trans.append(detect_transitions("Channel %d" % i, psdata['fault_%d' % i], psdata['Experiment Time'], "faulted", "cleared"))
 print()
 
-jmin = None; jmax = None
+jmin = 0; jmax = len(psdata['Experiment Time']) - 1
 for i, trans in enumerate(enable_trans):
     if len(trans) > 0:
         if jmin is None: jmin = trans.min()
@@ -122,7 +122,7 @@ for i, trans in enumerate(enable_trans):
         else:            jmax = max([trans.max(), jmax])
 tmin = psdata['Experiment Time'][jmin]
 tmax = psdata['Experiment Time'][jmax]
-tminoff = psdata['Experiment Time'][jmin - (len(psdata['Experiment Time']) - jmax)]
+tminoff = psdata['Experiment Time'][jmin - (len(psdata['Experiment Time']) - jmax - 1)]
 tmaxoff = psdata['Experiment Time'][-1]
 
 plt.figure(figsize=(figw, figh))
@@ -237,16 +237,18 @@ plt.legend()
 plt.tight_layout()
 plt.savefig(os.path.join(imgdir, "FL_Power.png"), dpi=150)
 
-plt.figure(figsize=(figw, figh))
-plt.title("Trigger")
-plt.ylabel("Trigger (boolean)")
-plt.xlabel("Experiment Time (s)")
-plt.plot(fldata['Experiment Time'], fldata['GPIOline'])
-trigger_trans = [detect_transitions("Trigger", fldata['GPIOline'], fldata['Experiment Time'], "enabled", "disabled")]
-plot_transitions(fldata['Experiment Time'], trigger_trans)
-plt.xlim(tminoff, tmaxoff)
-plt.tight_layout()
-plt.savefig(os.path.join(imgdir, "FL_Trigger.png"), dpi=150)
+trigger_trans = []
+if 'GPIOline' in fldata:
+    plt.figure(figsize=(figw, figh))
+    plt.title("Trigger")
+    plt.ylabel("Trigger (boolean)")
+    plt.xlabel("Experiment Time (s)")
+    plt.plot(fldata['Experiment Time'], fldata['GPIOline'])
+    trigger_trans.append(detect_transitions("Trigger", fldata['GPIOline'], fldata['Experiment Time'], "enabled", "disabled"))
+    plot_transitions(fldata['Experiment Time'], trigger_trans)
+    plt.xlim(tminoff, tmaxoff)
+    plt.tight_layout()
+    plt.savefig(os.path.join(imgdir, "FL_Trigger.png"), dpi=150)
 
 #plt.figure(figsize=(figw, figh))
 #plt.title("Latitude")
@@ -274,27 +276,41 @@ plt.plot(fldata['Longitude'], fldata['Latitude'])
 plt.tight_layout()
 plt.savefig(os.path.join(imgdir, "FL_Trajectory.png"), dpi=150)
 
+if   'CCx_accel'              in fldata: xaccel = 'CCx_accel'
+elif 'Acceleration_X'         in fldata: xaccel = 'Acceleration_X'
+if   'CCy_accel'              in fldata: yaccel = 'CCy_accel'
+elif 'Acceleration_Y'         in fldata: yaccel = 'Acceleration_Y'
+if   'CCz_accel'              in fldata: zaccel = 'CCz_accel'
+elif 'Acceleration_Z'         in fldata: zaccel = 'Acceleration_Z'
+if   'CCaccel_mag'            in fldata: accelm = 'CCaccel_mag'
+elif 'Acceleration_Magnitude' in fldata: accelm = 'Acceleration_Magnitude'
 plt.figure(figsize=(figw, figh))
 plt.title("Acceleration")
 plt.ylabel("Acceleration (g)")
 plt.xlabel("Experiment Time (s)")
-plt.plot(fldata['Experiment Time'], fldata['CCx_accel']/32.17, label="X Axis")
-plt.plot(fldata['Experiment Time'], fldata['CCy_accel']/32.17, label="Y Axis")
-plt.plot(fldata['Experiment Time'], fldata['CCz_accel']/32.17, label="Z Axis")
-plt.plot(fldata['Experiment Time'], fldata['CCaccel_mag']/32.17, label="Magnitude")
+plt.plot(fldata['Experiment Time'], fldata[xaccel]/32.17, label="X Axis")
+plt.plot(fldata['Experiment Time'], fldata[yaccel]/32.17, label="Y Axis")
+plt.plot(fldata['Experiment Time'], fldata[zaccel]/32.17, label="Z Axis")
+plt.plot(fldata['Experiment Time'], fldata[accelm]/32.17, label="Magnitude")
 plot_transitions(psdata['Experiment Time'], enable_trans+trigger_trans)
 plt.xlim(tminoff, tmaxoff)
 plt.legend()
 plt.tight_layout()
 plt.savefig(os.path.join(imgdir, "FL_Acceleration.png"), dpi=150)
 
+if   'CC_roll'     in fldata: roll  = 'CC_roll'
+elif 'Roll_Phi'    in fldata: roll  = 'Acceleration_X'
+if   'CC_pitch'    in fldata: pitch = 'CC_pitch'
+elif 'Pitch_Theta' in fldata: pitch = 'Acceleration_Y'
+if   'CC_yaw'      in fldata: yaw   = 'CC_yaw'
+elif 'Yaw_Psi'     in fldata: yaw   = 'Acceleration_Z'
 plt.figure(figsize=(figw, figh))
 plt.title("Capsule Orientation")
 plt.ylabel("Orientation")
 plt.xlabel("Experiment Time (s)")
-plt.plot(fldata['Experiment Time'], fldata['CC_roll'], label="Roll")
-plt.plot(fldata['Experiment Time'], fldata['CC_pitch'], label="Pitch")
-plt.plot(fldata['Experiment Time'], fldata['CC_yaw'], label="Yaw")
+plt.plot(fldata['Experiment Time'], fldata[roll], label="Roll")
+plt.plot(fldata['Experiment Time'], fldata[pitch], label="Pitch")
+plt.plot(fldata['Experiment Time'], fldata[yaw], label="Yaw")
 plot_transitions(psdata['Experiment Time'], enable_trans+trigger_trans)
 plt.xlim(tminoff, tmaxoff)
 plt.legend()
