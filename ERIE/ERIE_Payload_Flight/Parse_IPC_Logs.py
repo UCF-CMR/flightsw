@@ -116,13 +116,19 @@ print()
 jmin = 0; jmax = len(psdata['Experiment Time']) - 1
 for i, trans in enumerate(enable_trans):
     if len(trans) > 0:
-        if jmin is None: jmin = trans.min()
-        else:            jmin = min([trans.min(), jmin])
-        if jmax is None: jmax = trans.max()
-        else:            jmax = max([trans.max(), jmax])
+        if jmin == 0:
+            jmin = trans.min()
+        else:
+            jmin = min([trans.min(), jmin])
+        if jmax == len(psdata['Experiment Time']) - 1:
+            jmax = trans.max()
+        else:
+            jmax = max([trans.max(), jmax])
+
 tmin = psdata['Experiment Time'][jmin]
 tmax = psdata['Experiment Time'][jmax]
-tminoff = psdata['Experiment Time'][jmin - (len(psdata['Experiment Time']) - jmax - 1)]
+jminoff = max(0, jmin - (len(psdata['Experiment Time']) - jmax - 1))
+tminoff = psdata['Experiment Time'][jminoff]
 tmaxoff = psdata['Experiment Time'][-1]
 
 plt.figure(figsize=(figw, figh))
