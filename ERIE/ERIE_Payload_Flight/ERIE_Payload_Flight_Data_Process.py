@@ -21,12 +21,13 @@ if os.path.exists(profile) and os.path.isfile(profile):
     print("Flight profile detected! Parsing %s ..." % profile)
     with open(profile, 'r') as fh:
         for line in fh:
-            line = line.strip().split(':')
-            if len(line) == 2:
-                profhead[line[0]] = eval(line[1])
-            elif len(line) == 1:
-                dataline = line[0].split(',')
-                profdata.append([float(dataline[0])]+dataline[1:])
+            if not line.startswith('#'):
+                line = line.strip().split(':')
+                if len(line) == 2:
+                    profhead[line[0]] = eval(line[1])
+                elif len(line) == 1:
+                    dataline = line[0].split(',')
+                    profdata.append([float(dataline[0])]+dataline[1:])
 
     if 'OFFSET' in profhead:
         for data in profdata:
@@ -70,6 +71,7 @@ with open(fn, "r") as fh:
 ymax = max([max(V[c]) for c in range(8)])
 ymin = min([min(V[c]) for c in range(8)])
 
+plt.figure(figsize=(16,9))
 for time, data in info:
     if data.startswith("Transitioning to state "):
         text = data[len("Transitioning to state "):]
@@ -81,9 +83,8 @@ for time, data in info:
 if profdata:
     print("\nVehicle profile events:")
     for time, data in profdata:
-        if time >= 0:
-            plt.axvline(time, linestyle=':', linewidth=0.75, color="red")
-            plt.annotate(data.upper().replace('/', '\n'), (time,ymin), rotation=90, color="red")
+        plt.axvline(time, linestyle=':', linewidth=0.75, color="red")
+        plt.annotate(data.upper().replace('/', '\n'), (time,ymin), rotation=90, color="red")
         print("%4d: %s" % (time, data))
 
 for c in range(8):
@@ -100,5 +101,9 @@ for c in range(8):
 plt.xlabel("Elapsed Time (s)")
 plt.ylabel("Sensor Output (V)")
 plt.title(fn)
-plt.legend()
+plt.tight_layout()
+box = plt.gca().get_position()
+plt.gca().set_position([box.x0, box.y0 + box.height * 0.05, box.width, box.height * 0.95])
+plt.legend(loc='upper center', bbox_to_anchor=(0.5, -0.07), ncol=8)
+plt.savefig(fn.replace(".TXT", ".png").replace(".txt", ".png"), dpi=150)
 plt.show()
