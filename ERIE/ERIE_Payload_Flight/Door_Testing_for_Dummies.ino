@@ -1,7 +1,6 @@
 //Door Testing for Dummies
 
 //Define variables - DO NOT TOUCH //
-//#include <Servo.h>
 #define    LED                 7                                    // Output for LED's                                      
 #define    DIR                 5                                    // Output for stepper direction
 #define    CP                  4                                    // Output for stepper signal    
