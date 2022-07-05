@@ -1,0 +1,89 @@
+<?xml version="1.0" encoding="UTF-8"?>
+
+<experiment name="ERIE_Flt1" enabled='true' xmlns="http://www.blueorigin.com/remconfig">
+
+<device_configuration>
+    <power channel='0' reset='auto' current_limit='2.0'/>  <!-- HV power -->
+    <power channel='1' reset='auto' current_limit='2.0'/>  <!-- main (EM & lights & SD) power -->
+    <dio channel='10' direction='output'/>  <!-- trigger signal, GPIO11 -->
+<!--    <dio channel='9'  -->
+</device_configuration>
+
+<!-- Log file for flight events, power data, GPIO on/off -->
+<action name='CabinData_Flight_Logger'>
+    
+    <timertrigger mode='enable' event='escape_enabled'/>
+    <timertrigger mode='disable' event='safing' />
+    
+    <filelogger name='flight_log'>
+        <power channel='0' mode='voltage' name='volts_0'/>
+        <power channel='0' mode='current' name='current_0' />
+        <power channel='1' mode='voltage' name='volts_1'/>
+        <power channel='1' mode='current' name='current_1' />
+        <dio channel='10' name='GPIOline'/>
+        <latitude name='Latitude'/>
+        <longitude name='Longitude'/>
+        <acceleration channel='0' name='CCx_accel'/>  <!-- x-axis -->
+		<acceleration channel='1' name='CCy_accel'/>  <!-- y-axis -->
+		<acceleration channel='2' name='CCz_accel'/>  <!-- z-axis -->
+		<mag_acceleration name='CCaccel_mag'/>
+        <angular_velocity channel='0' name='CC_roll' />
+        <angular_velocity channel='1' name='CC_pitch' />
+        <angular_velocity channel='2' name='CC_yaw' />
+    </filelogger>
+
+</action>
+
+<!-- Enable power for sensor, controller, and lights -->
+<action name='enable-main-power'>
+
+    <timertrigger mode='enable' event='liftoff' />
+    <timertrigger mode='disable' event='touchdown'  delay='30' />
+   
+    <!-- digital outputs set to a value of 1 -->
+    <output value='1'>
+        <power channel='1'/> <!-- Pwr channel 1 enabled - power to arduino -->
+    </output>
+    
+</action>
+
+<!-- Enable power for HV modules -->
+<action name='enable-HV-power'>
+    
+    <timertrigger mode='enable' event='meco' />
+    <timertrigger mode='disable' event='coast_end' />
+    
+    <!-- digital outputs set to a value of 1 -->
+    <output value='1'>
+        <power channel='0'/> <!-- Pwr channel 0 enabled - HV modules -->
+    </output>
+    
+</action>
+
+<!-- Enable the experiment, one trigger line to motor Arduino -->
+<action name="enable-experiment">
+
+	<timertrigger mode='enable' event='coast_start' />
+	<timertrigger mode='disable' event='coast_start' delay='10.0' />
+
+   	<output value='1'>
+        		<dio channel='10' />   <!-- trigger channel GPIO11 enabled  -->
+	</output>
+
+</action>
+
+<action name="EMlights-powerdown">
+
+	<timertrigger mode='enable' event='touchdown' />
+	<timertrigger mode='disable' event='touchdown='5.0' />
+
+   	<output value='1'>
+        		<dio channel='10' />   <!-- trigger channel GPIO11 enabled  -->
+	</output>
+
+</action>
+
+            
+</experiment>
+
+
