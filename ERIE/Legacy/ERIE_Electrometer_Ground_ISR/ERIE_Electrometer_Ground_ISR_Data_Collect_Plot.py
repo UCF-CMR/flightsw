@@ -35,11 +35,12 @@ fig = plt.figure(figsize=(16,8))
 ax = fig.add_subplot(111)
 
 plots = [ax.scatter([], [], marker='.', label=("Channel %d" % (c+1))) for c in range(8)]
-ax.set_xlim(0, 1)
-ax.set_ylim(0, 1024)
+ax.set_xlim(0, 0.0)
+ax.set_ylim(0.0, 5.0)
+ymin = None; ymax = None
 ax.set_title("Real-Time Electrometer Measurements")
 ax.set_xlabel("Time (s)")
-ax.set_ylabel("ADC Reading")
+ax.set_ylabel("Voltage (V)")
 ax.legend()
 fig.set_tight_layout(True)
 fig.canvas.flush_events()
@@ -65,7 +66,8 @@ with open(fn, "w+") as fh:
                     print("[WARN] Skipping invalid data!")
                 if c == c:
                     try:
-                        data = np.array([[t/1000., float(v[2])]])
+                        calval = 5./1024.*float(v[2])
+                        data = np.array([[t/1000., calval]])
                     except ValueError:
                         print("[WARN] Not plotting invalid data!")
                     array = plots[c].get_offsets()
@@ -73,7 +75,14 @@ with open(fn, "w+") as fh:
                     plots[c].set_offsets(array)
 
                     ax.set_xlim(0, array[:,0].max() + 0.5)
-                    #ax.set_ylim(array[:,1].min() - 0.5, array[:,1].max() + 0.5)
+                    if ymin is None: ymin = calval
+                    if ymax is None: ymax = calval
+                    if calval > ymax:
+                        ymax = calval
+                        ax.set_ylim(ymin, ymax)
+                    if calval < ymin:
+                        ymin = calval
+                        ax.set_ylim(ymin, ymax)
 
                     fig.canvas.flush_events()
                     plt.show(block=False)
