@@ -4,8 +4,10 @@ from datetime import datetime
 
 fn = datetime.now().strftime("%Y%m%d-%H%M%S-ISR") + ".csv"
 
-com = 9 # NOTE: Update this to match COM port for Arduino
-if os.path.exists("/dev/ttyS%d" % com):
+com = 0 # NOTE: Update this to match COM port for Arduino
+if os.path.exists("/dev/ttyACM%d" % com):
+    ser = serial.Serial("/dev/ttyACM%d" % com, baudrate=115200)
+elif os.path.exists("/dev/ttyS%d" % com):
     ser = serial.Serial("/dev/ttyS%d" % com, baudrate=115200)
 else:
     ser = serial.Serial("COM%d" % com, baudrate=115200)
