@@ -38,8 +38,9 @@ byte channel = -1;
 #define MUX_MASK  B00000111 // Base PORTB bit mask (do not change) (defaults to Arduino pins 8,  9, 10)
 #define MUX_SHIFT 0         // Left shift from B00000111 (shift of 1 would give Arduino pins 9, 10, 11)
 
-#define RESET_PIN 12 // Arduino pin 12; electrometer pin 6
+#define RESET_PIN 7  // Arduino pin  7; electrometer pin 6
 #define SIGNL_PIN A0 // Arduino pin A0; electrometer pin 7
+#define ENABL_PIN A2 // Arduino pin A2; electrometer pin 1
 
 void switchChannel(byte c)
 {
@@ -53,6 +54,9 @@ void switchChannel(byte c)
 
 void setup()
 {
+
+  pinMode(ENABL_PIN, OUTPUT);
+  digitalWrite(ENABL_PIN, HIGH);
   
   Serial.begin(115200);   // begin Serial comm
 
