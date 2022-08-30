@@ -96,6 +96,8 @@ typedef enum
   STATE_HV_REG_ENABLE,
   STATE_HV_REG_DISABLE,
   STATE_ELECTROMETER_ENABLE,
+  STATE_ELECTROMETER_RESET_ENABLE,
+  STATE_ELECTROMETER_RESET_DISABLE,
   STATE_ELECTROMETER_DISABLE,
   STATE_STEPPER_RUN_OPENED,
   STATE_STEPPER_RUN_CLOSED,
@@ -141,22 +143,24 @@ void state_transition(int new_state, unsigned long delay_time)
       datalog.print(String(delay_time));
       datalog.println(F("]"));
       break;
-    case STATE_INITIALIZE:              datalog.println(F("INITIALIZE"));              break;
-    case STATE_12V_REG_ENABLE:          datalog.println(F("12V_REG_ENABLE"));          break;
-    case STATE_ELECTROMETER_ENABLE:     datalog.println(F("ELECTROMETER_ENABLE"));     break;
-    case STATE_COAST_TRIGGER_WAIT:      datalog.println(F("COAST_TRIGGER_WAIT"));      break;
-    case STATE_COAST_TRIGGER_VERIFY:    datalog.println(F("COAST_TRIGGER_VERIFY"));    break;
-    case STATE_HV_REG_ENABLE:           datalog.println(F("HV_REG_ENABLE"));           break;
-    case STATE_STEPPER_RUN_OPENED:      datalog.println(F("STEPPER_RUN_OPENED"));      break;
-    case STATE_STEPPER_RUN_CLOSED:      datalog.println(F("STEPPER_RUN_CLOSED"));      break;
-    case STATE_STEPPER_RUN:             datalog.println(F("STEPPER_RUN"));             break;
-    case STATE_HV_REG_DISABLE:          datalog.println(F("HV_REG_DISABLE"));          break;
-    case STATE_CHUTE_TRIGGER_WAIT:      datalog.println(F("CHUTE_TRIGGER_WAIT"));      break;
-    case STATE_CHUTE_TRIGGER_VERIFY:    datalog.println(F("CHUTE_TRIGGER_VERIFY"));    break;
-    case STATE_ELECTROMETER_DISABLE:    datalog.println(F("ELECTROMETER_DISABLE"));    break;
-    case STATE_12V_REG_DISABLE:         datalog.println(F("12V_REG_DISABLE"));         break;
-    case STATE_TERMINATE:               datalog.println(F("TERMINATE"));               break;
-    default:                            datalog.println(F("UNKNOWN"));                 break;
+    case STATE_INITIALIZE:                  datalog.println(F("INITIALIZE"));                  break;
+    case STATE_12V_REG_ENABLE:              datalog.println(F("12V_REG_ENABLE"));              break;
+    case STATE_ELECTROMETER_ENABLE:         datalog.println(F("ELECTROMETER_ENABLE"));         break;
+    case STATE_COAST_TRIGGER_WAIT:          datalog.println(F("COAST_TRIGGER_WAIT"));          break;
+    case STATE_COAST_TRIGGER_VERIFY:        datalog.println(F("COAST_TRIGGER_VERIFY"));        break;
+    case STATE_ELECTROMETER_RESET_ENABLE:   datalog.println(F("ELECTROMETER_RESET_ENABLE"));   break;
+    case STATE_ELECTROMETER_RESET_DISABLE:  datalog.println(F("ELECTROMETER_RESET_DISABLE"));  break;
+    case STATE_HV_REG_ENABLE:               datalog.println(F("HV_REG_ENABLE"));               break;
+    case STATE_STEPPER_RUN_OPENED:          datalog.println(F("STEPPER_RUN_OPENED"));          break;
+    case STATE_STEPPER_RUN_CLOSED:          datalog.println(F("STEPPER_RUN_CLOSED"));          break;
+    case STATE_STEPPER_RUN:                 datalog.println(F("STEPPER_RUN"));                 break;
+    case STATE_HV_REG_DISABLE:              datalog.println(F("HV_REG_DISABLE"));              break;
+    case STATE_CHUTE_TRIGGER_WAIT:          datalog.println(F("CHUTE_TRIGGER_WAIT"));          break;
+    case STATE_CHUTE_TRIGGER_VERIFY:        datalog.println(F("CHUTE_TRIGGER_VERIFY"));        break;
+    case STATE_ELECTROMETER_DISABLE:        datalog.println(F("ELECTROMETER_DISABLE"));        break;
+    case STATE_12V_REG_DISABLE:             datalog.println(F("12V_REG_DISABLE"));             break;
+    case STATE_TERMINATE:                   datalog.println(F("TERMINATE"));                   break;
+    default:                                datalog.println(F("UNKNOWN"));                     break;
 
   }
 
@@ -240,7 +244,6 @@ void setup()
 
   state_transition(STATE_INITIALIZE);
 
-
 }
 
 void loop()
@@ -303,7 +306,7 @@ void loop()
       if(digitalRead(PIN_DI_TRIGGER) == HIGH)
       {
 
-        state_transition(STATE_HV_REG_ENABLE, TRIGGER_DELAY);
+        state_transition(STATE_ELECTROMETER_RESET_ENABLE, TRIGGER_DELAY);
 
       }
       else
@@ -314,9 +317,19 @@ void loop()
       }
       break;
 
+    case STATE_ELECTROMETER_RESET_ENABLE:
+      digitalWrite(PIN_DO_EM_RESET, HIGH);
+      state_transition(STATE_ELECTROMETER_RESET_DISABLE, SETTLE_DELAY/3.0);
+      break;
+
+    case STATE_ELECTROMETER_RESET_DISABLE:
+      digitalWrite(PIN_DO_EM_RESET, LOW);
+      state_transition(STATE_HV_REG_ENABLE, SETTLE_DELAY/3.0);
+      break;
+
     case STATE_HV_REG_ENABLE:
       digitalWrite(PIN_DO_HV_REG_ENABLE, HIGH);
-      state_transition(STATE_STEPPER_RUN_OPENED, SETTLE_DELAY);
+      state_transition(STATE_STEPPER_RUN_OPENED, SETTLE_DELAY/3.0);
       break;
 
     case STATE_STEPPER_RUN_OPENED:
@@ -361,7 +374,8 @@ void loop()
             // otherwise, perform actions that occur between door cycles
             else
             {
-              state_transition(STATE_ELECTROMETER_DISABLE, STEPPER_CLOSED_DELAY);
+              //state_transition(STATE_ELECTROMETER_DISABLE, STEPPER_CLOSED_DELAY);
+              state_transition(STATE_STEPPER_RUN_OPENED, CORONA_DELAY+STEPPER_INTERIM_DELAY);
             }
           }
         }
