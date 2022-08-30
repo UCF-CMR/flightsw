@@ -3,8 +3,8 @@
 <experiment name="ERIE_Flt2" enabled='true' xmlns="http://www.blueorigin.com/remconfig">
 
 <device_configuration>
-    <power channel='1' reset='auto' current_limit='2.0'/>  <!-- main (EM & lights & SD) power -->
-    <power channel='2' reset='auto' current_limit='2.0'/>  <!-- HV power -->
+    <power channel='1' reset='auto' current_limit='2.0'/>  <!-- HV power -->
+    <power channel='2' reset='auto' current_limit='2.0'/>  <!-- main (EM & lights & SD) power -->
     <dio channel='10' direction='output'/>  <!-- trigger signal, GPIO11 -->
 <!--    <dio channel='9'  -->
 </device_configuration>
@@ -16,10 +16,10 @@
     <timertrigger mode='disable' event='safing' />
     
     <filelogger name='flight_log'>
-        <power channel='1' mode='voltage' name='volts_0'/>
-        <power channel='1' mode='current' name='current_0' />
-        <power channel='2' mode='voltage' name='volts_1'/>
-        <power channel='2' mode='current' name='current_1' />
+        <power channel='1' mode='voltage' name='volts_2'/>
+        <power channel='1' mode='current' name='current_2' />
+        <power channel='2' mode='voltage' name='volts_3'/>
+        <power channel='2' mode='current' name='current_3' />
         <dio channel='10' name='GPIOline'/>
         <latitude name='Latitude'/>
         <longitude name='Longitude'/>
@@ -42,7 +42,7 @@
    
     <!-- digital outputs set to a value of 1 -->
     <output value='1'>
-        <power channel='1'/> <!-- Pwr channel 1 enabled - power to arduino -->
+        <power channel='2'/> <!-- Pwr channel 3 enabled - power to arduino -->
     </output>
     
 </action>
@@ -55,7 +55,7 @@
     
     <!-- digital outputs set to a value of 1 -->
     <output value='1'>
-        <power channel='2'/> <!-- Pwr channel 2 enabled - HV modules -->
+        <power channel='1'/> <!-- Pwr channel 2 enabled - HV modules -->
     </output>
     
 </action>
