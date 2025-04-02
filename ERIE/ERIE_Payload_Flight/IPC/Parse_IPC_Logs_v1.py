@@ -10,7 +10,7 @@ imgdir = "images"
 
 figw, figh = 13., 5.
 
-channels = (0, 1) # range(4)
+channels = range(4)
 
 verbose = False
 
@@ -282,6 +282,15 @@ plt.plot(fldata['Longitude'], fldata['Latitude'])
 plt.tight_layout()
 plt.savefig(os.path.join(imgdir, "FL_Trajectory.png"), dpi=150)
 
+if 'Altitude_AGL' in fldata:
+    plt.figure(figsize=(figw, figh))
+    plt.title("Altitude")
+    plt.ylabel("Altitude Above Ground Level (ft)")
+    plt.xlabel("Experiment Time (s)")
+    plt.plot(fldata['Experiment Time'], fldata['Altitude_AGL'])
+    plt.tight_layout()
+    plt.savefig(os.path.join(imgdir, "FL_Altitude.png"), dpi=150)
+
 if   'CCx_accel'              in fldata: xaccel = 'CCx_accel'
 elif 'Acceleration_X'         in fldata: xaccel = 'Acceleration_X'
 if   'CCy_accel'              in fldata: yaccel = 'CCy_accel'
@@ -305,14 +314,14 @@ plt.tight_layout()
 plt.savefig(os.path.join(imgdir, "FL_Acceleration.png"), dpi=150)
 
 if   'CC_roll'     in fldata: roll  = 'CC_roll'
-elif 'Roll_Phi'    in fldata: roll  = 'Acceleration_X'
+elif 'Roll_Phi'    in fldata: roll  = 'Roll_Phi'
 if   'CC_pitch'    in fldata: pitch = 'CC_pitch'
-elif 'Pitch_Theta' in fldata: pitch = 'Acceleration_Y'
+elif 'Pitch_Theta' in fldata: pitch = 'Pitch_Theta'
 if   'CC_yaw'      in fldata: yaw   = 'CC_yaw'
-elif 'Yaw_Psi'     in fldata: yaw   = 'Acceleration_Z'
+elif 'Yaw_Psi'     in fldata: yaw   = 'Yaw_Psi'
 plt.figure(figsize=(figw, figh))
 plt.title("Capsule Orientation")
-plt.ylabel("Orientation")
+plt.ylabel("Orientation (radians)")
 plt.xlabel("Experiment Time (s)")
 plt.plot(fldata['Experiment Time'], fldata[roll], label="Roll")
 plt.plot(fldata['Experiment Time'], fldata[pitch], label="Pitch")
