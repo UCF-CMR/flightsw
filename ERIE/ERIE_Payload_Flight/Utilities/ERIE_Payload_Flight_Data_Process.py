@@ -29,13 +29,13 @@ ymax = max([max(V[c]) for c in range(cmax + 1)])
 ymin = min([min(V[c]) for c in range(cmax + 1)])
 
 print("\nPayload events:")
-em_disable_times = []
+em_enable_times = []
 stepper_run_count = 0
 fig, ax1 = plt.subplots(1, 1, figsize=(16,9))
 for time, data in events:
     if data.startswith("Transitioning to state "):
         text = data[len("Transitioning to state "):]
-        if text == "ELECTROMETER_DISABLE": em_disable_times.append(time/1000.)
+        if text == "ELECTROMETER_ENABLE": em_enable_times.append(time/1000.)
         if not text.startswith("DELAY") and not text.endswith("_WAIT") and not text.endswith("_VERIFY") and text not in omit_events:
             ax1.axvline(time/1000., linestyle=':', linewidth=0.75, color="gray")
             ax1.annotate(text, (time/1000., ymin), rotation=90, color="gray")
@@ -61,12 +61,12 @@ for c in range(cmax + 1):
     Tarr[c] = np.array(T[c])
     Varr[c] = np.array(V[c])
     Sarr[c] = np.array(S[c])
-    if len(em_disable_times) > 1:
+    if len(em_enable_times) > 1:
         if c == 0: print("\nElectrometer discontinuities:")
-        for em_disable_time in em_disable_times[:-1]:
-            if c == 0: print("  %.3f" % em_disable_time)
-            idx = np.where(Tarr[c] > em_disable_time)[0][0]
-            Tarr[c] = np.insert(Tarr[c], idx, em_disable_time)
+        for em_enable_time in em_enable_times[1:]:
+            if c == 0: print("  %.3f" % em_enable_time)
+            idx = np.where(Tarr[c] > em_enable_time)[0][0]
+            Tarr[c] = np.insert(Tarr[c], idx, em_enable_time)
             Varr[c] = np.insert(Varr[c], idx, np.nan)
     if c % 2 == c % 2: #1: # TODO: REMOVE EVEN/ODD CHECK
         if error:
